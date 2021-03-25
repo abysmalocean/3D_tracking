@@ -41,7 +41,7 @@ class ModelNetDataset(data.Dataset):
             path = os.path.join(root, cat_name + "/" + split)
             onlyfiles = [path + "/" + f for f in listdir(path) if isfile(join(path, f))]
             self.fns.extend(onlyfiles)
-        print(str(split) , "Dataset length", len(self.fns))
+        #print(str(split) , "Dataset length", len(self.fns))
         self.classes = list(self.cat.keys())
     
     def __getitem__(self, index):
