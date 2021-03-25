@@ -141,7 +141,7 @@ for epoch in tqdm(range(opt.nepoch)):
         correct = pred_choice.eq(target.data).cpu().sum()
         #print('[%d: %d/%d] train loss: %f accuracy: %f' % (epoch, i, num_batch, loss.item(), correct.item() / float(opt.batchSize)))
     
-        if i % 100 == 0: 
+        if i % 100 == 0:
             j, data = next(enumerate(testdataloader, 0))
             points, target = data
             points = points.transpose(2, 1)
