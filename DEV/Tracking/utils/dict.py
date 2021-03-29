@@ -9,4 +9,4 @@ NUSCENES_TRACKING_NAMES = [
 ]
 
 detection_path = "/media/liangxu/ArmyData/nuscenes/Tracking_result/"
-nuscense_path  = ""
+nuscense_path  = "/media/liangxu/ArmyData/nuscenes/"

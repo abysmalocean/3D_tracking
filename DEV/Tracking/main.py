@@ -17,6 +17,8 @@ from tqdm import tqdm
 # load the self libaray 
 from utils.dict import *
 from utils.utils import mkdir_if_missing
+from AB3DMOT import AB3DMOT
+
 
 def track_nuscenes(data_split, 
                    covariance_id, 
@@ -30,26 +32,30 @@ def track_nuscenes(data_split,
     save_dir = os.path.join(save_root, data_split)
     print(save_dir)
     mkdir_if_missing(save_dir)
+
     if 'train' in data_split:
-        detection_file = os.path.join(utils.dict.detection_path , 'megvii_train.json')
-        data_root = '/juno/u/hkchiu/dataset/nuscenes/trainval'
+        detection_file = os.path.join(detection_path , 'megvii_train.json')
+        data_root      = os.path.join(nuscense_path , 'trainval')
         version='v1.0-trainval'
         output_path = os.path.join(save_dir, 'results_train_probabilistic_tracking.json')
     elif 'val' in data_split:
         detection_file = os.path.join(detection_path , 'megvii_val.json')
-        data_root = '/juno/u/hkchiu/dataset/nuscenes/trainval'
+        data_root      = os.path.join(nuscense_path , 'trainval')
         version='v1.0-trainval'
         output_path = os.path.join(save_dir, 'results_val_probabilistic_tracking.json')
     elif 'test' in data_split:
-        detection_file = '/juno/u/hkchiu/dataset/nuscenes_new/megvii_test.json'
-        data_root = '/juno/u/hkchiu/dataset/nuscenes/test'
+        detection_file = os.path.join(detection_path , 'megvii_test.json')
+        data_root      = os.path.join(nuscense_path , 'test')
         version='v1.0-test'
         output_path = os.path.join(save_dir, 'results_test_probabilistic_tracking.json')
+    
     nusc = NuScenes(version=version, dataroot=data_root, verbose=True)
 
     result = {}
     total_time = 0.0
     total_frames = 0
+    with open(detection_file) as f: 
+        data = json.load(f)
 
 
     
@@ -77,5 +83,6 @@ if __name__ == '__main__':
                    match_algorithm, 
                    save_root, 
                    use_angular_velocity)
+    print("Program finished correctly")
 
 

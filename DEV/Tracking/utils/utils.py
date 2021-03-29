@@ -1,4 +1,5 @@
 import os, copy, glob, glob2, numpy as np, colorsys
+from numba import jit
 
 def isstring(string_test):
     try:
@@ -107,3 +108,97 @@ def mkdir_if_missing(input_path,
 	dirname, _, _ = fileparts(good_path)
 	if not is_path_exists(dirname): mkdir_if_missing(dirname)
 	if isfolder(good_path) and not is_path_exists(good_path): os.mkdir(good_path)
+
+
+def format_sample_result(sample_token, tracking_name, tracker):
+  '''
+  Input:
+    tracker: (9): [h, w, l, x, y, z, rot_y], tracking_id, tracking_score
+  Output:
+  sample_result {
+    "sample_token":   <str>         -- Foreign key. Identifies the sample/keyframe for which objects are detected.
+    "translation":    <float> [3]   -- Estimated bounding box location in meters in the global frame: center_x, center_y, center_z.
+    "size":           <float> [3]   -- Estimated bounding box size in meters: width, length, height.
+    "rotation":       <float> [4]   -- Estimated bounding box orientation as quaternion in the global frame: w, x, y, z.
+    "velocity":       <float> [2]   -- Estimated bounding box velocity in m/s in the global frame: vx, vy.
+    "tracking_id":    <str>         -- Unique object id that is used to identify an object track across samples.
+    "tracking_name":  <str>         -- The predicted class for this sample_result, e.g. car, pedestrian.
+                                       Note that the tracking_name cannot change throughout a track.
+    "tracking_score": <float>       -- Object prediction score between 0 and 1 for the class identified by tracking_name.
+                                       We average over frame level scores to compute the track level score.
+                                       The score is used to determine positive and negative tracks via thresholding.
+  }
+  '''
+  rotation = Quaternion(axis=[0, 0, 1], angle=tracker[6]).elements
+  sample_result = {
+    'sample_token': sample_token,
+    'translation': [tracker[3], tracker[4], tracker[5]],
+    'size': [tracker[1], tracker[2], tracker[0]],
+    'rotation': [rotation[0], rotation[1], rotation[2], rotation[3]],
+    'velocity': [0, 0],
+    'tracking_id': str(int(tracker[7])),
+    'tracking_name': tracking_name,
+    'tracking_score': tracker[8]
+  }
+
+  return sample_result
+
+@jit       
+def roty(t):
+    ''' Rotation about the y-axis. '''
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[c,  0,  s],
+                     [0,  1,  0],
+                     [-s, 0,  c]])
+
+def convert_3dbox_to_8corner(bbox3d_input, nuscenes_to_kitti=False):
+    """
+    Takes an object and a projection matrix (P) and projects the 3d bounding box
+    into the image plane. 
+    Returns: 
+        corners_2d: (8,2) array in the left image corrd, 
+        corners_3d: (8,3) array in the rect camera corrd. 
+    Note: 
+        the output of this function will be passed to the function iou3d for 
+        calculating the 3d-iou. But the function iou3d was written for the kitti
+        so the caller needs to set nuscense_to_kitti to True is the input 
+        bbox3d_input is in nuscense format. 
+    """
+    # compute rotational matrix around yaw axis
+    bbox3d = copy.copy(bbox3d_input)
+    if nuscenes_to_kitti:
+          # transform to kitti format first
+      bbox3d_nuscenes = copy.copy(bbox3d)
+      # kitti:    [x,  y,  z,  a, l, w, h]
+      # nuscenes: [y, -z, -x, -a, w, l, h]
+      bbox3d[0] =  bbox3d_nuscenes[1]
+      bbox3d[1] = -bbox3d_nuscenes[2]
+      bbox3d[2] = -bbox3d_nuscenes[0]
+      bbox3d[3] = -bbox3d_nuscenes[3]
+      bbox3d[4] =  bbox3d_nuscenes[5]
+      bbox3d[5] =  bbox3d_nuscenes[4]
+    
+    R = roty(bbox3d[3])
+    # 3d bounding box dimensions
+    l = bbox3d[4]
+    w = bbox3d[5]
+    h = bbox3d[6]
+    
+    # 3d bounding box corners
+    x_corners = [l/2,l/2,-l/2,-l/2,l/2,l/2,-l/2,-l/2];
+    y_corners = [0,0,0,0,-h,-h,-h,-h];
+    z_corners = [w/2,-w/2,-w/2,w/2,w/2,-w/2,-w/2,w/2];
+    
+    # rotate and translate 3d bounding box
+    corners_3d = np.dot(R, np.vstack([x_corners,y_corners,z_corners]))
+    corners_3d[0,:] = corners_3d[0,:] + bbox3d[0]
+    corners_3d[1,:] = corners_3d[1,:] + bbox3d[1]
+    corners_3d[2,:] = corners_3d[2,:] + bbox3d[2]
+
+    return np.transpose(corners_3d)
+    
+
+
+
+

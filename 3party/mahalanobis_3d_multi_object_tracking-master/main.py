@@ -402,7 +402,7 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold=0.1,
   distance_matrix = np.zeros((len(detections),len(trackers)),dtype=np.float32)
 
   if use_mahalanobis:
-    assert(dets is not None)
+     assert(dets is not None)
     assert(trks is not None)
     assert(trks_S is not None)
 
@@ -733,6 +733,7 @@ def track_nuscenes(data_split, covariance_id, match_distance, match_threshold, m
           # (N, 9)
           # (h, w, l, x, y, z, rot_y), tracking_id, tracking_score 
           # print('trackers: ', trackers)
+          # change the format to the result needed by the algorithm.
           for i in range(trackers.shape[0]):
             sample_result = format_sample_result(current_sample_token, tracking_name, trackers[i])
             results[current_sample_token].append(sample_result)
