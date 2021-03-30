@@ -124,7 +124,7 @@ class AB3DMOT(object):
                                    self.covariance_id, 
                                    track_score, 
                                    self.tracking_name, 
-                                   use_angular_velocity)
+                                   self.use_angular_velocity)
             # append the new tracker to the existing tracker
             self.trackers.append(trk)
         

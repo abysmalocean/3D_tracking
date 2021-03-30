@@ -143,7 +143,6 @@ def format_sample_result(sample_token, tracking_name, tracker):
 
   return sample_result
 
-@jit       
 def roty(t):
     ''' Rotation about the y-axis. '''
     c = np.cos(t)

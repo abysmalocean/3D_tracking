@@ -3,7 +3,8 @@
 from __future__ import print_function
 import os.path, copy, numpy as np, time, sys
 from numba import jit
-from sklearn.utils.linear_assignment_ import linear_assignment
+from scipy.optimize import linear_sum_assignment as linear_assignment
+
 from filterpy.kalman import KalmanFilter
 from utils import load_list_from_folder, fileparts, mkdir_if_missing
 from scipy.spatial import ConvexHull
@@ -16,19 +17,17 @@ from nuscenes.eval.detection.data_classes import DetectionBox
 from pyquaternion import Quaternion
 from tqdm import tqdm
 
-@jit    
+ 
 def poly_area(x,y):
     return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
-
-@jit        
+     
 def box3d_vol(corners):
     ''' corners: (8,3) no assumption on axis direction '''
     a = np.sqrt(np.sum((corners[0,:] - corners[1,:])**2))
     b = np.sqrt(np.sum((corners[1,:] - corners[2,:])**2))
     c = np.sqrt(np.sum((corners[0,:] - corners[4,:])**2))
     return a*b*c
-
-@jit       
+    
 def convex_hull_intersection(p1, p2):
     """ Compute area of two convex hull's intersection area.
         p1,p2 are a list of (x,y) tuples of hull vertices.
@@ -112,7 +111,7 @@ def iou3d(corners1, corners2):
     iou = inter_vol / (vol1 + vol2 - inter_vol)
     return iou, iou_2d
 
-@jit       
+   
 def roty(t):
     ''' Rotation about the y-axis. '''
     c = np.cos(t)
@@ -121,7 +120,6 @@ def roty(t):
                      [0,  1,  0],
                      [-s, 0,  c]])
 
-@jit       
 def rotz(t):
     ''' Rotation about the z-axis. '''
     c = np.cos(t)
@@ -402,7 +400,7 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold=0.1,
   distance_matrix = np.zeros((len(detections),len(trackers)),dtype=np.float32)
 
   if use_mahalanobis:
-     assert(dets is not None)
+    assert(dets is not None)
     assert(trks is not None)
     assert(trks_S is not None)
 
@@ -450,9 +448,9 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold=0.1,
     print('matched_indices: ', matched_indices)
 
   unmatched_detections = []
-  for d,det in enumerate(detections):
-    if(d not in matched_indices[:,0]):
-      unmatched_detections.append(d)
+  for d,det in enumerate(detections):   
+      if(d not in matched_indices[:,0]):
+          unmatched_detections.append(d)
   unmatched_trackers = []
   for t,trk in enumerate(trackers):
     if len(matched_indices) == 0 or (t not in matched_indices[:,1]):
@@ -656,21 +654,24 @@ def track_nuscenes(data_split, covariance_id, match_distance, match_threshold, m
   
   '''
   save_dir = os.path.join(save_root, data_split); mkdir_if_missing(save_dir)
+  detection_path = "/media/liangxu/ArmyData/nuscenes/Tracking_result/"
+  nuscense_path  = "/media/liangxu/ArmyData/nuscenes/"
+  
   if 'train' in data_split:
-    detection_file = '/juno/u/hkchiu/dataset/nuscenes_new/megvii_train.json'
-    data_root = '/juno/u/hkchiu/dataset/nuscenes/trainval'
-    version='v1.0-trainval'
-    output_path = os.path.join(save_dir, 'results_train_probabilistic_tracking.json')
+      detection_file = os.path.join(detection_path , 'megvii_train.json')
+      data_root      = os.path.join(nuscense_path , 'trainval')
+      version='v1.0-trainval'
+      output_path = os.path.join(save_dir, 'results_train_probabilistic_tracking.json')
   elif 'val' in data_split:
-    detection_file = '/juno/u/hkchiu/dataset/nuscenes_new/megvii_val.json'
-    data_root = '/juno/u/hkchiu/dataset/nuscenes/trainval'
-    version='v1.0-trainval'
-    output_path = os.path.join(save_dir, 'results_val_probabilistic_tracking.json')
+      detection_file = os.path.join(detection_path , 'megvii_val.json')
+      data_root      = os.path.join(nuscense_path , 'trainval')
+      version='v1.0-trainval'
+      output_path = os.path.join(save_dir, 'results_val_probabilistic_tracking.json')
   elif 'test' in data_split:
-    detection_file = '/juno/u/hkchiu/dataset/nuscenes_new/megvii_test.json'
-    data_root = '/juno/u/hkchiu/dataset/nuscenes/test'
-    version='v1.0-test'
-    output_path = os.path.join(save_dir, 'results_test_probabilistic_tracking.json')
+      detection_file = os.path.join(detection_path , 'megvii_test.json')
+      data_root      = os.path.join(nuscense_path , 'test')
+      version='v1.0-test'
+      output_path = os.path.join(save_dir, 'results_test_probabilistic_tracking.json')
 
   nusc = NuScenes(version=version, dataroot=data_root, verbose=True)
 

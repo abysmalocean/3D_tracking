@@ -1,4 +1,20 @@
 # Tracker implementation
+from filterpy.kalman import KalmanFilter
+import numpy as np
+
+def angle_in_range(angle):
+      
+    '''
+    Input angle: -2pi ~ 2pi
+    Output angle: -pi ~ pi
+    '''
+    if angle > np.pi:
+          angle -= 2 * np.pi
+    if angle < -np.pi:
+          angle += 2 * np.pi
+    return angle
+
+
 
 class KalmanBoxTracker(object): 
     """
@@ -83,18 +99,88 @@ class KalmanBoxTracker(object):
               self.kf.Q = self.kf.Q[:-1,:-1]
         else:
             assert(False)
-        
-        # TODO: finish this fucntion
+        # change the x
+        self.kf.x[:7] = bbox3D.reshape((7,1))
+
+        self.time_since_update = 0
+        self.id = KalmanBoxTracker.count
+        KalmanBoxTracker.count += 1
+        self.history = []
+        # number of total hits including the first detection
+        self.hits = 1
+        # number of continusing hit considering the first detection
+        self.hit_streak = 1
+        self.first_continuing_hit = 1
+        self.still_first = True
+        self.age = 0
+        self.info = info # other information
+        self.track_score = track_score
+        self.tracking_name = tracking_name
+        self.use_angular_velocity = use_angular_velocity
+
     def update(self, bbox3D, info): 
         """
         update the state vector with observed bbox. 
+            bbox3D: this is the detection function
         """
-        raise NotImplementedError
+        self.time_since_update = 0
+        self.history = []
+        self.hits += 1
+        # number of continusing hit
+        self.hit_streak += 1
+        if self.still_first: 
+            # number of continusing hit in the first time
+            self.first_continuing_hit += 1
+        
+        ###################### Orientation correction
+        # normalize the theta ()
+        # FIXME: use the angle normalization function need to change the whole
+        # block. using the angle normalization code
+        if self.kf.x[3] >= np.pi: self.kf.x[3] -= np.pi * 2
+        if self.kf.x[3] < -np.pi: self.kf.x[3] += np.pi * 2
+
+        new_theta = bbox3D[3]
+        if new_theta >= np.pi: new_theta -= np.pi * 2
+        if new_theta < -np.pi: new_theta += np.pi * 2
+        bbox3D[3] = new_theta
+
+        predicted_theta = self.kf.x[3]
+        # if the angle of two theta is not acute angle
+        if abs(new_theta - predicted_theta) > np.pi / 2.0 and \
+           abs(new_theta - predicted_theta) < np.pi * 3 / 2.0:     
+            self.kf.x[3] += np.pi       
+            if self.kf.x[3] > np.pi: self.kf.x[3] -= np.pi * 2
+            if self.kf.x[3] < -np.pi: self.kf.x[3] += np.pi * 2
+        
+        # now the angle is acute: < 90 ir > 270, convert the case of > 270 to 90
+        if abs(new_theta - self.kf.x[3]) >= np.pi * 3 / 2.0:
+            if new_theta > 0: self.kf.x[3] += np.pi * 2
+        else: self.kf.x[3] -= np.pi * 2
+
+        ####################################
+        # update the KF
+        self.kf.update(bbox3D)
+        
+        if self.kf.x[3] >= np.pi: self.kf.x[3] -= np.pi * 2
+        if self.kf.x[3] < -np.pi: self.kf.x[3] += np.pi * 2
+        self.info = info
+
     def predict(self): 
         """
         Advances the state vector and returns the predicted bounding box estimates
         """
         raise NotImplementedError
+        self.kf.predict()
+        self.kf.x[3] = angle_in_range(self.kf.x[3])
+
+        self.age += 1
+        if (self.time_since_update > 0): 
+            self.hit_streak = 0
+            self.still_first = False
+        self.time_since_update += 1
+        self.history.append(self.kf.x)
+        return self.history[-1]
+
     def get_state(self): 
         """
         Return the current bounding box estimate. 

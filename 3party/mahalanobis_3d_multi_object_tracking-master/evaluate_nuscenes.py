@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser.add_argument('--eval_set', type=str, default='val',
                         help='Which dataset split to evaluate on, train, val or test.')
     #parser.add_argument('--dataroot', type=str, default='/data/sets/nuscenes',
-    parser.add_argument('--dataroot', type=str, default='/juno/u/hkchiu/dataset/nuscenes/trainval',
+    parser.add_argument('--dataroot', type=str, default='/media/liangxu/ArmyData/nuscenes/trainval',
                         help='Default nuScenes data directory.')
     parser.add_argument('--version', type=str, default='v1.0-trainval',
                         help='Which version of the nuScenes dataset to evaluate on, e.g. v1.0-trainval.')
@@ -52,7 +52,9 @@ if __name__ == "__main__":
     else:
         with open(config_path, 'r') as _f:
             cfg_ = TrackingConfig.deserialize(json.load(_f))
-
+    print(result_path_)
+    #import IPython as ipy
+    #ipy.embed()
     nusc_eval = TrackingEval(config=cfg_, result_path=result_path_, eval_set=eval_set_, output_dir=output_dir_,
                              nusc_version=version_, nusc_dataroot=dataroot_, verbose=verbose_)
     nusc_eval.main(render_curves=render_curves_)
