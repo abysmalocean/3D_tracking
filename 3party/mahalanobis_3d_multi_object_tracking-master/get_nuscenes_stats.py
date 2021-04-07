@@ -242,7 +242,7 @@ if __name__ == '__main__':
   else:
     with open(config_path, 'r') as _f:
       cfg_ = DetectionConfig.deserialize(json.load(_f))
-
+  '''
   if 'train' in eval_set_:
     detection_file = '/juno/u/hkchiu/dataset/nuscenes_new/megvii_train.json'
     data_root = '/juno/u/hkchiu/dataset/nuscenes/trainval'
@@ -254,6 +254,22 @@ if __name__ == '__main__':
   elif 'test' in eval_set_:
     detection_file = '/juno/u/hkchiu/dataset/nuscenes_new/megvii_test.json'
     data_root = '/juno/u/hkchiu/dataset/nuscenes/test'
+    version='v1.0-test'
+  '''
+  detection_path = "/media/liangxu/ArmyData/nuscenes/Tracking_result/"
+  nuscense_path  = "/media/liangxu/ArmyData/nuscenes/"
+  
+  if 'train' in eval_set_:
+    detection_file = os.path.join(detection_path , 'megvii_train.json')
+    data_root      = os.path.join(nuscense_path , 'trainval')
+    version='v1.0-trainval'
+  elif 'val' in eval_set_:
+    detection_file = os.path.join(detection_path , 'megvii_val.json')
+    data_root      = os.path.join(nuscense_path , 'trainval')
+    version='v1.0-trainval'
+  elif 'test' in eval_set_:
+    detection_file = os.path.join(detection_path , 'megvii_test.json')
+    data_root      = os.path.join(nuscense_path , 'test')
     version='v1.0-test'
 
   nusc = NuScenes(version=version, dataroot=data_root, verbose=True)
