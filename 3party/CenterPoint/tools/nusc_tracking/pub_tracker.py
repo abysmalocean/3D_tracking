@@ -93,11 +93,15 @@ class PubTracker(object):
       (item_cat.reshape(N, 1) != track_cat.reshape(1, M))) > 0
 
       dist = dist  + invalid * 1e18
+
+      
       if self.hungarian:
+        # this is not implemented I think
         dist[dist > 1e18] = 1e18
         matched_indices = linear_assignment(copy.deepcopy(dist))
       else:
         matched_indices = greedy_assignment(copy.deepcopy(dist))
+    
     else:  # first few frame
       assert M == 0
       matched_indices = np.array([], np.int32).reshape(-1, 2)
@@ -135,7 +139,8 @@ class PubTracker(object):
       track['active'] =  1
       ret.append(track)
 
-    # still store unmatched tracks if its age doesn't exceed max_age, however, we shouldn't output 
+    # still store unmatched tracks if its 
+    # age doesn't exceed max_age, however, we shouldn't output 
     # the object in current frame 
     for i in unmatched_tracks:
       track = self.tracks[i]

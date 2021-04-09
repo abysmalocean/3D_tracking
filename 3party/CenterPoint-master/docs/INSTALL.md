@@ -39,6 +39,8 @@ pip install -r requirements.txt
 export PYTHONPATH="${PYTHONPATH}:PATH_TO_CENTERPOINT"
 ```
 
+cd det3d/ops/dcn
+
 ### Advanced Installation 
 
 #### nuScenes dev-kit
@@ -59,6 +61,12 @@ export CUDA_PATH=/usr/local/cuda-10.0
 export CUDA_HOME=/usr/local/cuda-10.0
 export LD_LIBRARY_PATH=/usr/local/cuda-10.0/lib64:$LD_LIBRARY_PATH
 bash setup.sh 
+cd det3d/ops/dcn 
+python setup.py build_ext --inplace
+
+cd .. && cd  iou3d_nms
+python setup.py build_ext --inplace
+
 ```
 
 #### APEX
