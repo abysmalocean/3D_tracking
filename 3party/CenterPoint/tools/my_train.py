@@ -90,6 +90,7 @@ def parse_args():
 def main(): 
     args = parse_args()
     cfg = Config.fromfile(args.config)
+    
     cfg.local_rank = args.local_rank
     cfg.work_dir = args.work_dir
     cfg.resume_from = args.resume_from
@@ -100,10 +101,12 @@ def main():
     # copy important files to backup
     backup_dir = os.path.join(cfg.work_dir, "det3d")
     os.makedirs(backup_dir, exist_ok=True)
-        
+    
+    # TODO: dig into the build_detector
     model = build_detector(cfg.model, 
                            train_cfg=cfg.train_cfg, 
                            test_cfg=cfg.test_cfg)
+
     datasets = [build_dataset(cfg.data.train)]
     print(cfg.workflow)
     #if len(cfg.workflow) == 2:

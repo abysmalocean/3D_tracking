@@ -249,16 +249,26 @@ def build_optimizer(model, optimizer_cfg):
         return optimizer_cls(params, **optimizer_cfg)
 
 
-def train_detector(model, dataset, cfg, distributed=False, validate=False, logger=None):
+def train_detector(model, 
+                   dataset, 
+                   cfg, 
+                   distributed=False, 
+                   validate=False, 
+                   logger=None):
     if logger is None:
         logger = get_root_logger(cfg.log_level)
 
     # start training
     # prepare data loaders
     dataset = dataset if isinstance(dataset, (list, tuple)) else [dataset]
+    
+    # Build the data loader.
     data_loaders = [
         build_dataloader(
-            ds, cfg.data.samples_per_gpu, cfg.data.workers_per_gpu, dist=distributed
+            ds, 
+            cfg.data.samples_per_gpu, 
+            cfg.data.workers_per_gpu, 
+            dist=distributed
         )
         for ds in dataset
     ]
@@ -295,7 +305,12 @@ def train_detector(model, dataset, cfg, distributed=False, validate=False, logge
     logger.info(f"model structure: {model}")
 
     trainer = Trainer(
-        model, batch_processor, optimizer, lr_scheduler, cfg.work_dir, cfg.log_level
+        model, 
+        batch_processor, 
+        optimizer, 
+        lr_scheduler, 
+        cfg.work_dir, 
+        cfg.log_level
     )
 
     if distributed:

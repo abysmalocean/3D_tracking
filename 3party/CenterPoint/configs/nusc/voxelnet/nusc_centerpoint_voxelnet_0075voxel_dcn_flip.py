@@ -125,6 +125,7 @@ db_sampler = dict(
     global_random_rotation_range_per_object=[0, 0],
     rate=1.0,
 )
+
 train_preprocessor = dict(
     mode="train",
     shuffle_points=True,
