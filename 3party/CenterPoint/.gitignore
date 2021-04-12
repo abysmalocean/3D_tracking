@@ -14,3 +14,4 @@ venv/
 *.zip
 *.bin
 .vscode/
+test.out
