@@ -49,6 +49,7 @@ class FastFocalLoss(nn.Module):
     pos_loss = torch.log(pos_pred) * torch.pow(1 - pos_pred, 2) * \
                mask.unsqueeze(2)
     pos_loss = pos_loss.sum()
+    
     if num_pos == 0:
       return - neg_loss
     return - (pos_loss + neg_loss) / num_pos

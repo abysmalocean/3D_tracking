@@ -254,11 +254,11 @@ class CenterHead(nn.Module):
             preds_dict['hm'] = self._sigmoid(preds_dict['hm'])
 
             hm_loss = self.crit(
-                preds_dict['hm'], 
-                example['hm'][task_id], 
-                example['ind'][task_id], 
+                preds_dict['hm'], # out, the output of the predicted heatmap
+                example['hm'][task_id], # ground truth heat map
+                example['ind'][task_id], # 
                 example['mask'][task_id], 
-                example['cat'][task_id]
+                example['cat'][task_id] # cat (category id for peaks): B x M
             )
 
             target_box = example['anno_box'][task_id]
@@ -277,7 +277,10 @@ class CenterHead(nn.Module):
             ret = {}
  
             # Regression loss for dimension, offset, height, rotation            
-            box_loss = self.crit_reg(preds_dict['anno_box'], example['mask'][task_id], example['ind'][task_id], target_box)
+            box_loss = self.crit_reg(preds_dict['anno_box'], 
+                                     example['mask'][task_id], 
+                                     example['ind'][task_id], 
+                                     target_box)
 
             loc_loss = (box_loss*box_loss.new_tensor(self.code_weights)).sum()
 
