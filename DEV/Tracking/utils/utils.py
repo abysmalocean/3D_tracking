@@ -1,5 +1,7 @@
 import os, copy, glob, glob2, numpy as np, colorsys
 from numba import jit
+from pyquaternion import Quaternion
+
 
 def isstring(string_test):
     try:
@@ -197,7 +199,10 @@ def convert_3dbox_to_8corner(bbox3d_input, nuscenes_to_kitti=False):
 
     return np.transpose(corners_3d)
     
-
+def rotation_to_positive_z_angle(rotation):
+    q = Quaternion(rotation)
+    angle = q.angle if q.axis[2] > 0 else -q.angle
+    return angle
 
 
 

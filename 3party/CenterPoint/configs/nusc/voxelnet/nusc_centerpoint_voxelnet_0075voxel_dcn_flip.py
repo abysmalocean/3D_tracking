@@ -204,6 +204,16 @@ data = dict(
         pipeline=test_pipeline,
         version='v1.0-test'
     ),
+    train_test=dict(
+        type=dataset_type,
+        root_path=data_root,
+        info_path=train_anno,
+        test_mode=True,
+        ann_file=train_anno,
+        nsweeps=nsweeps,
+        class_names=class_names,
+        pipeline=test_pipeline,
+    )
 )
 
 

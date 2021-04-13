@@ -28,7 +28,7 @@ NUSCENES_TRACKING_NAMES = [
 ]
 
 def rotation_to_positive_z_angle(rotation):
-  q = Quaternion(rotation)
+      q = Quaternion(rotation)
   angle = q.angle if q.axis[2] > 0 else -q.angle
   return angle
 

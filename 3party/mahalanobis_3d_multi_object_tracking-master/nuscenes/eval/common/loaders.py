@@ -51,7 +51,10 @@ def load_prediction(result_path: str, max_boxes_per_sample: int, box_cls, verbos
     return all_results, meta
 
 
-def load_gt(nusc: NuScenes, eval_split: str, box_cls, verbose: bool = False) -> EvalBoxes:
+def load_gt(nusc: NuScenes, 
+            eval_split: str, 
+            box_cls, 
+            verbose: bool = False) -> EvalBoxes:
     """
     Loads ground truth boxes from DB.
     :param nusc: A NuScenes instance.
@@ -188,6 +191,7 @@ def add_center_dist(nusc: NuScenes,
         sample_rec = nusc.get('sample', sample_token)
         sd_record = nusc.get('sample_data', sample_rec['data']['LIDAR_TOP'])
         pose_record = nusc.get('ego_pose', sd_record['ego_pose_token'])
+        #print(pose_record)
 
         for box in eval_boxes[sample_token]:
             # Both boxes and ego pose are given in global coord system, so distance can be calculated directly.

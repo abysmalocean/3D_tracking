@@ -262,7 +262,8 @@ class TrackingBox(EvalBox):
                  num_pts: int = -1,  # Nbr. LIDAR or RADAR inside the box. Only for gt boxes.
                  tracking_id: str = '',  # Instance id of this object.
                  tracking_name: str = '',  # The class name used in the tracking challenge.
-                 tracking_score: float = -1.0):  # Does not apply to GT.
+                 tracking_score: float = -1.0, 
+                 ego_rotation: Tuple[float, float, float, float] = (0, 0, 0, 0)):  # Does not apply to GT.
 
         super().__init__(sample_token, translation, size, rotation, velocity, ego_translation, num_pts)
 
@@ -276,6 +277,7 @@ class TrackingBox(EvalBox):
         self.tracking_id = tracking_id
         self.tracking_name = tracking_name
         self.tracking_score = tracking_score
+        self.ego_rotation = ego_rotation
 
     def __eq__(self, other):
         return (self.sample_token == other.sample_token and
@@ -298,6 +300,7 @@ class TrackingBox(EvalBox):
             'rotation': self.rotation,
             'velocity': self.velocity,
             'ego_translation': self.ego_translation,
+            'ego_rotation' : self.ego_rotation,
             'num_pts': self.num_pts,
             'tracking_id': self.tracking_id,
             'tracking_name': self.tracking_name,
@@ -313,7 +316,9 @@ class TrackingBox(EvalBox):
                    rotation=tuple(content['rotation']),
                    velocity=tuple(content['velocity']),
                    ego_translation=(0.0, 0.0, 0.0) if 'ego_translation' not in content
-                   else tuple(content['ego_translation']),
+                   else tuple(content['ego_rotation']),
+                   ego_translation=(0.0, 0.0, 0.0) if 'ego_rotation' not in content
+                   else tuple(content['ego_rotation']),
                    num_pts=-1 if 'num_pts' not in content else int(content['num_pts']),
                    tracking_id=content['tracking_id'],
                    tracking_name=content['tracking_name'],

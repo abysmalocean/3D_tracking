@@ -95,7 +95,7 @@ def main():
     cfg.gpus = args.gpus
 
     # init logget before other steps
-    print(cfg.log_level)
+    #print(cfg.log_level)
     logger = get_root_logger(cfg.log_level)
     logger.info("Distributed testing: {}".format(distributed))
     logger.info(f"torch.backends.cudnn.benchmark: {torch.backends.cudnn.benchmark}")
@@ -104,7 +104,7 @@ def main():
     
     if args.testset:
         print("Use Test Set")
-        dataset = build_dataset(cfg.data.test)
+        dataset = build_dataset(cfg.data.train_test)
     else:
         print("Use Val Set")
         # here to modify to the testing set
@@ -183,13 +183,13 @@ def main():
     #result_dict, _ = dataset.evaluation(copy.deepcopy(predictions), 
     #                                    output_dir=args.work_dir, 
     #                                    testset=args.testset)
-    
+    """
     if result_dict is not None:
         for k, v in result_dict["results"].items():
             print(f"Evaluation {k}: {v}")
 
     print("Main finished!!")
-
+    """
 
 if __name__ == "__main__":
     main()

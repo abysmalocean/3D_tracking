@@ -1,1 +1,1 @@
-python tools/test_detection.py configs/nusc/voxelnet/nusc_centerpoint_voxelnet_0075voxel_dcn_flip.py --work_dir work_dirs/nusc_centerpoint_voxelnet_dcn_0075voxel_flip_testset  --checkpoint work_dirs/nusc_0075_dcn_flip_track/voxelnet_converted.pth --testset --speed_test
+python tools/test_detection.py configs/nusc/voxelnet/nusc_centerpoint_voxelnet_0075voxel_dcn_flip.py --work_dir work_dirs/nusc_centerpoint_voxelnet_dcn_0075voxel_flip_trainSet_new  --checkpoint work_dirs/nusc_0075_dcn_flip_track/voxelnet_converted.pth --testset --speed_test
