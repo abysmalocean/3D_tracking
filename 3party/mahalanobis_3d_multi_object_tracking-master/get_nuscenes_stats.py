@@ -218,18 +218,36 @@ def matching_and_get_diff_stats(pred_boxes, gt_boxes, tracks_gt, matching_dist):
   return mean, std, var, mean_vel, std_vel, var_vel
 
 if __name__ == '__main__':
+  
   # Settings.
-  parser = argparse.ArgumentParser(description='Get nuScenes stats.',
-                                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument('--eval_set', type=str, default='train',
-                      help='Which dataset split to evaluate on, train, val or test.')
-  parser.add_argument('--config_path', type=str, default='',
-                      help='Path to the configuration file.'
-                           'If no path given, the NIPS 2019 configuration will be used.')
-  parser.add_argument('--verbose', type=int, default=1,
-                      help='Whether to print to stdout.')
-  parser.add_argument('--matching_dist', type=str, default='2d_center',
-                      help='Which distance function for matching, 3d_iou or 2d_center.')
+  parser = argparse.ArgumentParser(
+    description='Get nuScenes stats.',
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+  parser.add_argument(
+    '--eval_set', 
+    type=str,
+    default='train',
+    help='Which dataset split to evaluate on, train, val or test.')
+
+  parser.add_argument(
+    '--config_path', 
+    type=str, 
+    default='',
+    help='Path to the configuration file.'
+         'If no path given, the NIPS 2019 configuration will be used.')
+  
+  parser.add_argument(
+    '--verbose', 
+    type=int,
+    default=1,
+    help='Whether to print to stdout.')
+
+  parser.add_argument(
+    '--matching_dist', 
+    type=str,
+    default='2d_center',
+    help='Which distance function for matching, 3d_iou or 2d_center.')
   args = parser.parse_args()
 
   eval_set_ = args.eval_set
@@ -274,19 +292,19 @@ if __name__ == '__main__':
 
   nusc = NuScenes(version=version, dataroot=data_root, verbose=True)
 
+  # load the predictions and the gt boxes
   pred_boxes, _ = load_prediction(detection_file, 10000, DetectionBox)
-  gt_boxes = load_gt(nusc, eval_set_, TrackingBox)
+  gt_boxes      = load_gt(nusc, eval_set_, TrackingBox)
 
   assert set(pred_boxes.sample_tokens) == set(gt_boxes.sample_tokens), \
             "Samples in split don't match samples in predicted tracks."
 
   # Add center distances.
   pred_boxes = add_center_dist(nusc, pred_boxes)
-  gt_boxes = add_center_dist(nusc, gt_boxes)
-
-  
+  gt_boxes   = add_center_dist(nusc, gt_boxes)
   print('len(pred_boxes.sample_tokens): ', len(pred_boxes.sample_tokens))
   print('len(gt_boxes.sample_tokens): ', len(gt_boxes.sample_tokens))
+
 
   tracks_gt = create_tracks(gt_boxes, nusc, eval_set_, gt=True)
 
