@@ -10,6 +10,8 @@ from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.detection.data_classes import DetectionBox
 from nuscenes.eval.tracking.data_classes import TrackingBox
 
+from sklearn.utils.linear_assignment_ import linear_assignment
+import pickle
 
 
 def add_center_dist(nusc: NuScenes,
@@ -212,14 +214,14 @@ def matching_and_get_diff_stats(
     reorder_back = [6, 5, 4, 0, 1, 2, 3]
     
     #for scene_token in tracks_gt.keys():
-    for scene_token in tqdm(tracks.keys()): 
+    
+    for scene_token in tqdm(tracks_gt.keys()): 
         """
         tracks is : Dict[str, Dict[int, List[TrackingBox]]]
         """
-        #print('scene_token: ', scene_token)
-        #print('tracks[scene_token].keys(): ', len(tracks[scene_token].keys()))
-        for t_idx in range(len(tracks[scene_token].keys())):
-            t = sorted(tracks[scene_token].keys())[t_idx]
+        match_diff_t_map = {tracking_name: {} for tracking_name in NUSCENES_TRACKING_NAMES}
+        for t_idx in range(len(tracks_gt[scene_token].keys())):
+            t = sorted(tracks_gt[scene_token].keys())[t_idx]
             if len(tracks_gt[scene_token][t]) == 0: 
                 continue
             box = tracks_gt[scene_token][t][0]
@@ -273,7 +275,7 @@ def matching_and_get_diff_stats(
                     index_i = matched_indices[pair_id][0]
                     index_j = matched_indices[pair_id][1]
                     if distance_matrix[index_i][index_j] < threshold: 
-                        diff_velue = dets[index_i] - gts[index_j]
+                        diff_value = dets[index_i] - gts[index_j]
                         diff[tracking_name].append(diff_value)
                         gt_track_id = gts_ids[index_j]
                         if t_idx not in match_diff_t_map[tracking_name]:
@@ -283,10 +285,19 @@ def matching_and_get_diff_stats(
                         
                         # the the speed error. I do not think this is relevet
                         # ! not useful in my case
-                        if t_id > 0 and t_idx - 1 in match_diff_t_map[tracking_name] and\
+                        if t_idx > 0 and t_idx - 1 in match_diff_t_map[tracking_name] and\
                           gt_track_id in match_diff_t_map[tracking_name][t_idx-1]:
                             diff_vel_value = diff_value - match_diff_t_map[tracking_name][t_idx-1][gt_track_id]
                             diff_vel[tracking_name].append(diff_vel_value)
+    # saving the tracking diff
+    tracking_diff_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/tracking_diff"
+    tracking_diff_vel_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/tracking_diff_vel"
+    with open(tracking_diff_file_name, 'wb') as f:
+        pickle.dump(diff, f)
+        
+    with open(tracking_diff_vel_file_name, 'wb') as f:
+        pickle.dump(diff_vel, f)
+    
     diff = {tracking_name: np.stack(diff[tracking_name], axis=0) for tracking_name in NUSCENES_TRACKING_NAMES}
     mean = {tracking_name: np.mean(diff[tracking_name], axis=0) for tracking_name in NUSCENES_TRACKING_NAMES}
     std = {tracking_name: np.std(diff[tracking_name], axis=0) for tracking_name in NUSCENES_TRACKING_NAMES}

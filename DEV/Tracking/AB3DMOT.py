@@ -3,6 +3,8 @@ from utils.utils import format_sample_result
 from utils.association import associate_detections_to_trackers
 from utils.utils import convert_3dbox_to_8corner
 from filter.KalmanBoxTracker import KalmanBoxTracker
+from covariance import Covariance
+
 import numpy as np
 
 

@@ -25,6 +25,8 @@ from det3d.datasets.nuscenes.nusc_common import (
 )
 from det3d.datasets.registry import DATASETS
 
+from tqdm import tqdm
+
 
 @DATASETS.register_module
 class NuScenesDataset(PointCloudDataset):
@@ -224,7 +226,7 @@ class NuScenesDataset(PointCloudDataset):
             else:
                 mapped_class_names.append(n)
 
-        for det in dets:
+        for det in tqdm(dets):
             annos = []
             boxes = _second_det_to_nusc_box(det)
             boxes = _lidar_nusc_box_to_global(nusc, boxes, det["metadata"]["token"])

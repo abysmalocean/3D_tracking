@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os.path, copy, numpy as np, time, sys
 from numba import jit
+import argparse
 #from sklearn.utils.linear_assignment_ import linear_assignment
 from scipy.optimize import linear_sum_assignment as linear_assignment
 from filterpy.kalman import KalmanFilter
@@ -13,76 +14,158 @@ from nuscenes.eval.tracking.data_classes import TrackingBox
 from nuscenes.eval.detection.data_classes import DetectionBox
 from pyquaternion import Quaternion
 from tqdm import tqdm
+import pickle
 
-# load the self libaray 
+# some common paths
 from utils.dict import *
-from utils.utils import mkdir_if_missing
+from utils.utils import quaternion_yaw, format_sample_result
 from AB3DMOT import AB3DMOT
 
-
-def track_nuscenes(data_split, 
-                   covariance_id, 
-                   match_distance, 
-                   match_threshold, 
-                   match_algorithm, 
-                   save_root, 
-                   use_angular_velocity):
-    # TODO: implementing this fuction for tracking
-    print("working on the track_nuscense")
-    save_dir = os.path.join(save_root, data_split)
-    print(save_dir)
-    mkdir_if_missing(save_dir)
-
-    if 'train' in data_split:
-        detection_file = os.path.join(detection_path , 'megvii_train.json')
-        data_root      = os.path.join(nuscense_path , 'trainval')
-        version='v1.0-trainval'
-        output_path = os.path.join(save_dir, 'results_train_probabilistic_tracking.json')
-    elif 'val' in data_split:
-        detection_file = os.path.join(detection_path , 'megvii_val.json')
-        data_root      = os.path.join(nuscense_path , 'trainval')
-        version='v1.0-trainval'
-        output_path = os.path.join(save_dir, 'results_val_probabilistic_tracking.json')
-    elif 'test' in data_split:
-        detection_file = os.path.join(detection_path , 'megvii_test.json')
-        data_root      = os.path.join(nuscense_path , 'test')
-        version='v1.0-test'
-        output_path = os.path.join(save_dir, 'results_test_probabilistic_tracking.json')
+def run_tracking(
+    args,
+    nusc, 
+    all_results): 
+    print("Liang Xu in the tracking algorithm")
     
-    nusc = NuScenes(version=version, dataroot=data_root, verbose=True)
-
-    result = {}
+    # build the result dict
+    results = {}
     total_time = 0.0
-    total_frames = 0
-    with open(detection_file) as f: 
-        data = json.load(f)
-
-
+    total_frames = 0 
+    
+    processed_scene_tokens = set()
+    for sample_token_idx in tqdm(range(len(all_results.sample_tokens))):
+        sample_token = all_results.sample_tokens[sample_token_idx]
+        # from the sample_token find the according scene
+        scene_token  = nusc.get('sample', sample_token)['scene_token']
+        if scene_token in processed_scene_tokens:
+            continue
+        first_sample_token = nusc.get('scene', scene_token)['first_sample_token']
+        current_sample_token = first_sample_token
+        
+        
+        covariance_id = 2
+        use_angular_velocity = False
+        # build AB3DMOT for different class {car, bus ....}
+        mot_trackers = {tracking_name: 
+             AB3DMOT(covariance_id, 
+             tracking_name=tracking_name, 
+             use_angular_velocity=use_angular_velocity, 
+             tracking_nuscenes=True) 
+           for tracking_name in NUSCENES_TRACKING_NAMES}
+        while current_sample_token != '':
+            # extract all the detections for each class for current sample
+            results[current_sample_token] = []
+            dets = {tracking_name: [] 
+                        for tracking_name in NUSCENES_TRACKING_NAMES}
+            info = {tracking_name: [] 
+                        for tracking_name in NUSCENES_TRACKING_NAMES}
+            # all detections
+            for box in all_results.boxes[current_sample_token]: 
+                if box.detection_name not in NUSCENES_TRACKING_NAMES: 
+                    continue
+                q = Quaternion(box.rotation)
+                angle = quaternion_yaw(q)
+                # detection format [h, w, l, x, y, z, rot_y]
+                detection = np.array(
+                    [
+                        box.size[2], 
+                        box.size[0], 
+                        box.size[1], 
+                        box.translation[0],  
+                        box.translation[1], 
+                        box.translation[2],
+                        angle
+                    ]
+                )
+                information = np.array([box.detection_score])
+                dets[box.detection_name].append(detection)
+                info[box.detection_name].append(information)
+            # build all the detection to a dict 
+            dets_all = {
+                tracking_name: {
+                    'dets' : np.array(dets[tracking_name]), 
+                    'info' : np.array(info[tracking_name])
+                } for tracking_name in NUSCENES_TRACKING_NAMES
+            }
+            
+            total_frames += 1
+            start_time = time.time()
+            # fed each trackers the detection data
+            for tracking_name in NUSCENES_TRACKING_NAMES: 
+                # if we detect anything in this class
+                if dets_all[tracking_name]['dets'].shape[0] > 0: 
+                    # run tracker updates
+                    trackers_results = mot_trackers[tracking_name].update(
+                        dets_all[tracking_name], 
+                        match_distance = 'iou',
+                        match_threshold = 0.1, 
+                        match_algorithm = 'h', 
+                        seq_name = scene_token 
+                    )
+                    # process the results
+                    # result foramt (N, 9)
+                    # (h, w, l, x, y, z, rot_y), tracking_id, tracking_score 
+                    # change the format to the result needed by the algorihtm
+                    for i in range(trackers_results.shape[0]): 
+                        sample_result = format_sample_result(
+                            current_sample_token, 
+                            tracking_name, 
+                            trackers_results[i]
+                        )
+                        results[current_sample_token].append(sample_result)
+            cycle_time = time.time() - start_time
+            total_time += cycle_time
+            # tracking programming should above this code
+            # get next frame and continue the while loop
+            current_sample_token = nusc.get('sample', current_sample_token)['next']
+                
+        # code cor tracking inside the scene should above this code
+        # finish processing this scene, go to next scene
+        processed_scene_tokens.add(scene_token)
+    
+    
     
 
-if __name__ == '__main__':
-    print(len(sys.argv))
-    if len(sys.argv)!=9:
-        print("Usage: python main.py data_split(train, val, test) covariance_id(0, 1, 2) match_distance(iou or m) match_threshold match_algorithm(greedy or h) use_angular_velocity(true or false) dataset save_root")
-        sys.exit(1)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Tracking Parameters")
+    parser.add_argument(
+        "--data_split",
+        default="val"
+        )
+    parser.add_argument(
+        "--saved_root",
+        default='results/lastrun'
+    )
+    args = parser.parse_args()
+    return args 
 
-    data_split = sys.argv[1]
-    covariance_id = int(sys.argv[2])
-    match_distance = sys.argv[3]
-    match_threshold = float(sys.argv[4])
-    match_algorithm = sys.argv[5]
-    use_angular_velocity = sys.argv[6] == 'True' or sys.argv[6] == 'true'
-    dataset = sys.argv[7]
-    save_root = os.path.join('' + sys.argv[8])
+def main(): 
+    print("Working on the tracking")
+    args = parse_args()
+    
+    if args.data_split == 'train': 
+        detection_file = center_point_detection_train
+        output_path = os.path.join(args.saved_root, 'results_train_probabilistic_tracking.json')
+        nusc_file   = nusc_train_val_pickle_file
+    elif args.data_split == 'val':
+        detection_file = center_point_detection_val
+        output_path = os.path.join(args.saved_root, 'results_val_probabilistic_tracking.json')
+        nusc_file   = nusc_train_val_pickle_file
+    elif args.data_split == 'test':
+        detection_file = center_point_detection_test
+        output_path = os.path.join(args.saved_root, 'results_test_probabilistic_tracking.json')
+        nusc_file   = nusc_test_pickle_file
+    
+    # load the nuscenes file
+    nusc = pickle.load(open(nusc_file , 'rb'))
+    # load the detection data
+    with open(detection_file) as f:
+        data = json.load(f)
+    all_results = EvalBoxes.deserialize(data['results'], DetectionBox)
+    meta = data['meta']
+    print('meta: ', meta)
+    print("Loaded results from {}. Found detections for {} samples."
+        .format(detection_file, len(all_results.sample_tokens)))
 
-    # TODO: implement the track_nuscenes
-    track_nuscenes(data_split, 
-                   covariance_id, 
-                   match_distance, 
-                   match_threshold, 
-                   match_algorithm, 
-                   save_root, 
-                   use_angular_velocity)
-    print("Program finished correctly")
-
-
+if __name__ == "__main__":
+    main()

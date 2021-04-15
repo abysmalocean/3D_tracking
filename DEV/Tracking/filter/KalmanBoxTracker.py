@@ -1,5 +1,6 @@
 # Tracker implementation
 from filterpy.kalman import KalmanFilter
+from filter.covariance import Covariance
 import numpy as np
 
 def angle_in_range(angle):
