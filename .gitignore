@@ -1,5 +1,1 @@
-.vscode
-*__pycache__*
-DEV/Tracking/results
-3party/mahalanobis_3d_multi_object_tracking-master/results/
-3party/CenterPoint/test.out
+*.DS_Store
