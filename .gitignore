@@ -1,1 +1,11 @@
 *.DS_Store
+*./__pycache__/
+*/__pycache__/
+*/__pycache__/*
+*/__pycache__/*.pnc
+*/__pycache__/*.pyc
+.vscode
+*__pycache__*
+DEV/Tracking/results
+*/results
+3party/mahalanobis_3d_multi_object_tracking-master/results/

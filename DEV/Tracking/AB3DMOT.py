@@ -3,7 +3,7 @@ from utils.utils import format_sample_result
 from utils.association import associate_detections_to_trackers
 from utils.utils import convert_3dbox_to_8corner
 from filter.KalmanBoxTracker import KalmanBoxTracker
-from covariance import Covariance
+from filter.covariance import Covariance
 
 import numpy as np
 
@@ -15,7 +15,8 @@ class AB3DMOT(object):
                  min_hits      = 3, 
                  tracking_name = 'car', 
                  use_angular_velocity = False, 
-                 tracking_nuscenes    = False):
+                 tracking_nuscenes    = False,
+                 current_time_stemp   = 0.0):
         """
         Observation: 
             before reorder: [h, w, l, x, y ,z, rot_y]
@@ -33,8 +34,14 @@ class AB3DMOT(object):
         self.tracking_name = tracking_name
         self.use_angular_velocity = use_angular_velocity
         self.tracking_nuscenes = tracking_nuscenes
+        self.current_time_stemp = current_time_stemp 
     
-    def update(self, dets_all, match_distance, match_threshold, match_algorithm, seq_name): 
+    def update(self, 
+               dets_all, 
+               match_distance,
+               match_threshold,
+               match_algorithm, 
+               seq_name): 
         """
         Params: 
             dets_all: dict
@@ -49,6 +56,7 @@ class AB3DMOT(object):
                   detections of detections provided.
         """
         dets, info = dets_all['dets'], dets_all['info']
+        timstemp = dets_all['timestemp']
         dets = dets[:, self.reorder]
 
         self.frame_count += 1
@@ -58,11 +66,13 @@ class AB3DMOT(object):
         trks = np.zeros((len(self.trackers),7))
         to_del = []
         ret    = []
-        for t, trk in enumerate(trks): 
+        print("length of the detection", len(dets))
+        
+        for t, trk in enumerate(trks):
+            print("Predict the update") 
             pos = self.trackers[t].predict().reshape((-1, 1))
             trk[:] = [pos[0], pos[1], pos[2], pos[3], pos[4], pos[5], pos[6]]
-            if (np.any(np.isnan(pos))):
-                to_del.append(t)
+            
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
         # remove the tracker, somehow
         for t in reversed(to_del):
@@ -109,6 +119,7 @@ class AB3DMOT(object):
         # update matched trackers with assigned detections
         for t, trk in enumerate(self.trackers): 
             if t not in unmatched_trak:
+                print("Update the track")
                 # FIXME: I am not sure this is corrected, they are using the 
                 # predicted value to update. should we just leave this blank? 
                 d = matched[np.where(matched[:,1]==t)[0],0]     # a list of index
@@ -123,12 +134,12 @@ class AB3DMOT(object):
             # TODO: implement the Kalman Filter class
             trk = KalmanBoxTracker(dets[i,:], 
                                    info[i, :], 
-                                   self.covariance_id, 
-                                   track_score, 
-                                   self.tracking_name, 
-                                   self.use_angular_velocity)
+                                   timestemp=timstemp, 
+                                   track_score=track_score,
+                                   tracking_name=self.tracking_name)
             # append the new tracker to the existing tracker
             self.trackers.append(trk)
+        print("Current tracker for ", self.tracking_name, " is ", len(self.trackers))
         
         # summarying the result and output the result
         i = len(self.trackers)

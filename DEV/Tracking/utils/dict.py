@@ -22,3 +22,7 @@ nusc_test_pickle_file  = '/media/liangxu/ArmyData/nuscenes/Tracking_result/track
 tracking_diff_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/tracking_diff"
 miss_detection_rate_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/miss_detection_rate"
 clutter_rate_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/clutter_rate"
+
+# process Noize
+processNoise_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/process_noise_estimate_mean"
+MeasurementNoise_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/measurement_noise_var"

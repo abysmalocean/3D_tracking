@@ -1,7 +1,9 @@
 # Tracker implementation
+# use the EKF, which is designed bu my self
 from filterpy.kalman import KalmanFilter
 from filter.covariance import Covariance
 import numpy as np
+from filter.EKFBoxTracker import EKFBoxTracker
 
 def angle_in_range(angle):
       
@@ -25,83 +27,19 @@ class KalmanBoxTracker(object):
     count = 0
     def __init__(self, 
                  bbox3D, 
-                 info, 
-                 covariance_id = 0, 
+                 info,
+                 timestemp = 0.0, 
                  track_score=None, 
-                 tracking_name='car', 
-                 use_angular_velocity=False):
+                 tracking_name='car'):
         """
         Initialised a tracker using initial bounding box. 
         """
         # define the different model
         # with angular velocity or not
-        if not use_angular_velocity: 
-            self.kf = KalmanFilter(dim_x = 10, dim_z = 7)
-            self.kf.F = np.array([[1,0,0,0,0,0,0,1,0,0],      # state transition matrix
-                                  [0,1,0,0,0,0,0,0,1,0],
-                                  [0,0,1,0,0,0,0,0,0,1],
-                                  [0,0,0,1,0,0,0,0,0,0],  
-                                  [0,0,0,0,1,0,0,0,0,0],
-                                  [0,0,0,0,0,1,0,0,0,0],
-                                  [0,0,0,0,0,0,1,0,0,0],
-                                  [0,0,0,0,0,0,0,1,0,0],
-                                  [0,0,0,0,0,0,0,0,1,0],
-                                  [0,0,0,0,0,0,0,0,0,1]])
-            
-            self.kf.H = np.array([[1,0,0,0,0,0,0,0,0,0],      # measurement function,
-                                  [0,1,0,0,0,0,0,0,0,0],
-                                  [0,0,1,0,0,0,0,0,0,0],
-                                  [0,0,0,1,0,0,0,0,0,0],
-                                  [0,0,0,0,1,0,0,0,0,0],
-                                  [0,0,0,0,0,1,0,0,0,0],
-                                  [0,0,0,0,0,0,1,0,0,0]])
-        else: 
-            # using the angluar velocity
-            self.kf = KalmanFilter(dim_x=11, dim_z=7)       
-            self.kf.F = np.array([[1,0,0,0,0,0,0,1,0,0,0],      # state transition matrix
-                                  [0,1,0,0,0,0,0,0,1,0,0],
-                                  [0,0,1,0,0,0,0,0,0,1,0],
-                                  [0,0,0,1,0,0,0,0,0,0,1],  
-                                  [0,0,0,0,1,0,0,0,0,0,0],
-                                  [0,0,0,0,0,1,0,0,0,0,0],
-                                  [0,0,0,0,0,0,1,0,0,0,0],
-                                  [0,0,0,0,0,0,0,1,0,0,0],
-                                  [0,0,0,0,0,0,0,0,1,0,0],
-                                  [0,0,0,0,0,0,0,0,0,1,0],
-                                  [0,0,0,0,0,0,0,0,0,0,1]])
-                                
-            self.kf.H = np.array([[1,0,0,0,0,0,0,0,0,0,0],      # measurement function,
-                                  [0,1,0,0,0,0,0,0,0,0,0],
-                                  [0,0,1,0,0,0,0,0,0,0,0],
-                                  [0,0,0,1,0,0,0,0,0,0,0],
-                                  [0,0,0,0,1,0,0,0,0,0,0],
-                                  [0,0,0,0,0,1,0,0,0,0,0],
-                                  [0,0,0,0,0,0,1,0,0,0,0]])
-        # Initialize the covariance matrix, see covariance.py for more details
-        if covariance_id == 0: # exactly the same as AB3DMOT baseline
-            # self.kf.R[0:,0:] *= 10.   # measurement uncertainty
-            self.kf.P[7:,7:] *= 1000. #state uncertainty, give high uncertainty to the unobservable initial velocities, covariance matrix
-            self.kf.P *= 10.
-            # self.kf.Q[-1,-1] *= 0.01    # process uncertainty
-            self.kf.Q[7:,7:] *= 0.01
-        elif covariance_id == 1: # for kitti car, not supported
-            covariance = Covariance(covariance_id)
-            self.kf.P = covariance.P
-            self.kf.Q = covariance.Q
-            self.kf.R = covariance.R
-        elif covariance_id == 2: # for nuscenes
-            # this is what we need
-            covariance = Covariance(covariance_id)
-            self.kf.P = covariance.P[tracking_name]
-            self.kf.Q = covariance.Q[tracking_name]
-            self.kf.R = covariance.R[tracking_name]
-            if not use_angular_velocity:
-              self.kf.P = self.kf.P[:-1,:-1]
-              self.kf.Q = self.kf.Q[:-1,:-1]
-        else:
-            assert(False)
-        # change the x
-        self.kf.x[:7] = bbox3D.reshape((7,1))
+        self.EKF_tracker = EKFBoxTracker(
+            bbox3D.reshape((7,1)),
+            timestemp = timestemp, 
+            tracking_name = tracking_name)
 
         self.time_since_update = 0
         self.id = KalmanBoxTracker.count
@@ -117,13 +55,13 @@ class KalmanBoxTracker(object):
         self.info = info # other information
         self.track_score = track_score
         self.tracking_name = tracking_name
-        self.use_angular_velocity = use_angular_velocity
 
     def update(self, bbox3D, info): 
         """
         update the state vector with observed bbox. 
             bbox3D: this is the detection function
         """
+        raise NotImplementedError
         self.time_since_update = 0
         self.history = []
         self.hits += 1
@@ -161,6 +99,8 @@ class KalmanBoxTracker(object):
         ####################################
         # update the KF
         self.kf.update(bbox3D)
+        print("update?")
+        self.EKF_tracker.update(bbox3D)
         
         if self.kf.x[3] >= np.pi: self.kf.x[3] -= np.pi * 2
         if self.kf.x[3] < -np.pi: self.kf.x[3] += np.pi * 2
@@ -173,6 +113,8 @@ class KalmanBoxTracker(object):
         raise NotImplementedError
         self.kf.predict()
         self.kf.x[3] = angle_in_range(self.kf.x[3])
+        
+        self.EKF_tracker.predict()
 
         self.age += 1
         if (self.time_since_update > 0): 
@@ -186,6 +128,6 @@ class KalmanBoxTracker(object):
         """
         Return the current bounding box estimate. 
         """
-        return self.kf.x[:7].reshape((7, ))
+        return self.EKF_tracker.transfor_state()
     
     

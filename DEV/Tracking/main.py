@@ -20,6 +20,8 @@ import pickle
 from utils.dict import *
 from utils.utils import quaternion_yaw, format_sample_result
 from AB3DMOT import AB3DMOT
+from filter.MOT import Mot_tracker
+
 
 def run_tracking(
     args,
@@ -36,7 +38,9 @@ def run_tracking(
     for sample_token_idx in tqdm(range(len(all_results.sample_tokens))):
         sample_token = all_results.sample_tokens[sample_token_idx]
         # from the sample_token find the according scene
-        scene_token  = nusc.get('sample', sample_token)['scene_token']
+        current_sample  = nusc.get('sample', sample_token)
+        scene_token = current_sample['scene_token']
+        current_time_stemp = current_sample['timestamp'] / 1000000.0
         if scene_token in processed_scene_tokens:
             continue
         first_sample_token = nusc.get('scene', scene_token)['first_sample_token']
@@ -50,11 +54,13 @@ def run_tracking(
              AB3DMOT(covariance_id, 
              tracking_name=tracking_name, 
              use_angular_velocity=use_angular_velocity, 
-             tracking_nuscenes=True) 
+             tracking_nuscenes=True,
+             current_time_stemp = current_time_stemp) 
            for tracking_name in NUSCENES_TRACKING_NAMES}
         while current_sample_token != '':
             # extract all the detections for each class for current sample
             results[current_sample_token] = []
+            
             dets = {tracking_name: [] 
                         for tracking_name in NUSCENES_TRACKING_NAMES}
             info = {tracking_name: [] 
@@ -80,11 +86,13 @@ def run_tracking(
                 information = np.array([box.detection_score])
                 dets[box.detection_name].append(detection)
                 info[box.detection_name].append(information)
+                #time_stemp[box.]
             # build all the detection to a dict 
             dets_all = {
                 tracking_name: {
                     'dets' : np.array(dets[tracking_name]), 
-                    'info' : np.array(info[tracking_name])
+                    'info' : np.array(info[tracking_name]),
+                    'timestemp' : current_time_stemp
                 } for tracking_name in NUSCENES_TRACKING_NAMES
             }
             
@@ -94,7 +102,7 @@ def run_tracking(
             for tracking_name in NUSCENES_TRACKING_NAMES: 
                 # if we detect anything in this class
                 if dets_all[tracking_name]['dets'].shape[0] > 0: 
-                    # run tracker updates
+                    # run tracker updates, 
                     trackers_results = mot_trackers[tracking_name].update(
                         dets_all[tracking_name], 
                         match_distance = 'iou',
@@ -117,13 +125,19 @@ def run_tracking(
             total_time += cycle_time
             # tracking programming should above this code
             # get next frame and continue the while loop
-            current_sample_token = nusc.get('sample', current_sample_token)['next']
+            current_sample = nusc.get('sample', current_sample_token)
+            current_sample_token = current_sample['next']
+            current_time_stemp = current_sample['timestamp'] / 1000000.0
                 
         # code cor tracking inside the scene should above this code
         # finish processing this scene, go to next scene
         processed_scene_tokens.add(scene_token)
     
-    
+    # finished tracking all scenes, write the output data
+    output_data = {'meta': meta, 'results': results}
+    with open(args.saved_root, w) as output_file: 
+        json.dump(output_data, output_file)
+    print("Total Tracking took: %.3f for %d frames or %.1f FPS"%(total_time,total_frames,total_frames/total_time)) 
     
 
 def parse_args():

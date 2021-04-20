@@ -74,7 +74,7 @@ def get_mean(tracks):
   # store every detection data to compute mean and variance
   gt_box_data = {tracking_name: [] for tracking_name in NUSCENES_TRACKING_NAMES}
 
-  for scene_token in tracks.keys():
+  for scene_token in tqdm(tracks.keys()):
     #print('scene_token: ', scene_token)
     #print('tracks[scene_token].keys(): ', tracks[scene_token].keys())
     for t_idx in range(len(tracks[scene_token].keys())):
@@ -133,6 +133,12 @@ def get_mean(tracks):
   mean = {tracking_name: np.mean(gt_box_data[tracking_name], axis=0) for tracking_name in NUSCENES_TRACKING_NAMES}
   std = {tracking_name: np.std(gt_box_data[tracking_name], axis=0) for tracking_name in NUSCENES_TRACKING_NAMES}
   var = {tracking_name: np.var(gt_box_data[tracking_name], axis=0) for tracking_name in NUSCENES_TRACKING_NAMES}
+  saved_to_file = { 'mean' : mean, 
+                   'std' : std, 
+                   'var' : var}
+  processNoise_file_name = "/media/liangxu/ArmyData/nuscenes/Tracking_result/tracking_tmp/process_noise_estimate_mean"
+  with open(processNoise_file_name, 'wb') as f:
+    pickle.dump(saved_to_file, f)
 
   return mean, std, var
 
