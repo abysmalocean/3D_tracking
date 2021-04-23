@@ -65,14 +65,50 @@ class EKF_wraper(object):
             n_lidar_point = current_frame['sample_annotation']['num_lidar_pts']
             self.n_lidar_points.append(n_lidar_point)
     
+    def predict(self, dt): 
+        for ekf in self.KalmanFilters:
+            ekf.predict(dt)
+    
+    def measurement_predict(self): 
+        for ekf in self.KalmanFilters:
+            ekf.measurement_predict()
+    def update(self, locs, heading, shape): 
+        
+        for ekf in self.KalmanFilters:
+            detection = self.generate_detection(locs, 
+                                                heading, 
+                                                shape)
+            ekf.update(detection)
+    
+    def generate_detection(self, 
+                           locs, 
+                           heading, 
+                           shape): 
+        det = np.array([locs[0], 
+                        locs[1],
+                        heading,
+                        shape[0],
+                        shape[1]])[:, None]
+        return det
+    
     def run_ekf(self):
         self.initial_kf()
+        print("runing the EKF")
         
         pre_time = self.ftimes[0]
         for step in range(len(self.ftimes)): 
             dt = self.ftimes[step] - pre_time
-            for ekf in self.KalmanFilters:
-                ekf.predict(dt)
+            # first predict then update
+            if step != 0: 
+                self.predict(dt)
+            # measurement prediction
+            self.measurement_predict()
+            
+            # Update
+            self.update(locs=self.locs[step], 
+                        heading=self.headings[step],
+                        shape=self.shapes[step])
+            
             
     
     def initial_kf(self):
@@ -106,8 +142,9 @@ class EKF_wraper(object):
         Q_0[0][0] = self.meas_var[self.tracking_name][3]
         Q_0[1][1] = self.meas_var[self.tracking_name][4]
         Q_0[2][2] = self.meas_var[self.tracking_name][5]
-        Q_0[3][3] = self.meas_var[self.tracking_name][6]
-        Q_0[4][4] = self.meas_var[self.tracking_name][2]
+        
+        Q_0[3][3] = self.meas_var[self.tracking_name][2]    
+        Q_0[4][4] = self.meas_var[self.tracking_name][6]
         #Q_0[5][5] = self.meas_var[self.tracking_name][1]
         #Q_0[6][6] = self.meas_var[self.tracking_name][0]
         ekf_tmp.create_initial(x_0=x_0, p_0 = P_0, q_0 = Q_0)
