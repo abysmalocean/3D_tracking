@@ -108,7 +108,8 @@ class EKF_wraper(object):
             self.update(locs=self.locs[step], 
                         heading=self.headings[step],
                         shape=self.shapes[step])
-            
+            pre_time = self.ftimes[step]
+        #print("Size of posterior", len(self.KalmanFilters[0].post_x))
             
     
     def initial_kf(self):
@@ -149,6 +150,21 @@ class EKF_wraper(object):
         #Q_0[6][6] = self.meas_var[self.tracking_name][0]
         ekf_tmp.create_initial(x_0=x_0, p_0 = P_0, q_0 = Q_0)
         self.KalmanFilters.append(ekf_tmp)
+    
+    def plot_result(self):
+        fig = plt.figure(figsize=(12, 16))
+        ax = fig.add_subplot(111)
+        loc = np.array(self.locs)
+        plt.scatter(loc[:,0], loc[:,1], c='b', s=50, marker="+", 
+                label="{}".format("Center Measurements"))
+        
+        loc = np.array(self.KalmanFilters[0].post_x)
+        plt.scatter(loc[:,0], loc[:,1], c='y', s=50, marker="1", 
+                label="{}".format("After Kalman Filter"))
+        plt.plot(loc[:,0], loc[:,1], c='y')
+        ax.axis('equal')
+        ax.legend()
+        plt.show()
         
         
         

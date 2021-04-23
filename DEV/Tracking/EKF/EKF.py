@@ -124,11 +124,11 @@ class EKF():
         # for th
         H[2, 2] = 1.0
         
-        # for l
-        H[3, 6] = 1.0
+        # for w
+        H[3, 5] = 1.0
         
-        # for w 
-        H[4, 5] = 1.0
+        # for l 
+        H[4, 6] = 1.0
         
         return H
     
@@ -214,10 +214,10 @@ class EKF():
                             phi,
                             l,
                             w ])[:, None]
+        
         # predict the covariance
-        tmpG = self.G(temp_x, dt)
-        R_val = self.new_R(temp_x, dt)
-        #print(tmpG)
+        tmpG = self.G(state, dt)
+        R_val = self.new_R(state, dt)
         PropCov = np.dot(np.dot(tmpG, self.P), tmpG.transpose()) + R_val
         self.x = temp_x
         self.P = PropCov
@@ -230,11 +230,12 @@ class EKF():
         self.S = np.dot(np.dot(self.H, self.P), self.H.transpose()) + self.Q
         self.K = np.dot(np.dot(self.P, self.H.transpose()), np.linalg.inv(self.S))
     
-    def update(self, detection): 
+    def update(self, detection):
+        #print("measurement ", detection[0], detection[1])
         y_ = detection - self.z_pred
-        # correct the angle
         y_.itemset(2, angle_difference(detection.item(2),
                                       self.z_pred.item(2)))
+        print(y_.item(2))
         
         self.P = np.dot((np.identity(7) - np.dot(self.K, self.H)), self.P)
         self.x = self.x + np.dot(self.K, y_)
