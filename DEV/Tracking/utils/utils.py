@@ -19,6 +19,18 @@ def quaternion_yaw(q: Quaternion):
 
     return yaw
 
+def normailized_heading(x): 
+    """
+    Input a heading, output a normalized heading
+    heading [-pi, pi]
+    """
+    #x = x % (2 * np.pi)
+    if x > np.pi: 
+        return x - 2 * np.pi
+    elif x < -np.pi:
+        return x + 2 * np.pi
+    return x
+
 def angle_difference(x, y):
     """
     Get the smallest difference between 2 angles - x, y.

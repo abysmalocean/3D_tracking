@@ -1,7 +1,11 @@
 import numpy as np
 from math import sin, sqrt, cos
+from scipy.stats import multivariate_normal
+
 from utils.utils import angle_difference
 from matplotlib import pyplot as plt
+
+
 np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
 class After_filter(object):
@@ -52,7 +56,7 @@ class EKF():
         self.Q = q_0
         self.w_var = p_0[5][5]
         self.l_var = p_0[6][6]
-        print("create Initial")
+        #print("create Initial")
         
     def G(self, state, dt):
         x = state.item(0)
@@ -230,12 +234,31 @@ class EKF():
         self.S = np.dot(np.dot(self.H, self.P), self.H.transpose()) + self.Q
         self.K = np.dot(np.dot(self.P, self.H.transpose()), np.linalg.inv(self.S))
     
+    def measurement_likelihood(self, detection): 
+        """
+        Out put the likelihood for current detections
+        """
+        y_ = detection - self.z_pred
+        y_.itemset(2, angle_difference(detection.item(2),
+                                      self.z_pred.item(2)))
+        mean = np.zeros(y_.shape[0])
+        prob = multivariate_normal.logpdf(y_.T, 
+                                          mean = mean, 
+                                          cov = self.S,
+                                          allow_singular = True)
+        
+        return prob
+        
+    
     def update(self, detection):
         #print("measurement ", detection[0], detection[1])
         y_ = detection - self.z_pred
         y_.itemset(2, angle_difference(detection.item(2),
                                       self.z_pred.item(2)))
-        print(y_.item(2))
+        #print(y_)
+        # dubug proposes
+        #if (abs(y_.item(2)) > 1.0):
+        #    print(y_.item(2))
         
         self.P = np.dot((np.identity(7) - np.dot(self.K, self.H)), self.P)
         self.x = self.x + np.dot(self.K, y_)

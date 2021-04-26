@@ -2,11 +2,16 @@ import numpy as np
 from math import sin, sqrt, cos
 from pyquaternion import Quaternion
 import pickle
+import copy
+
+
 
 from utils.utils import angle_difference
 from utils.utils import quaternion_yaw
+from utils.utils import normailized_heading
 from EKF.EKF import *
 from utils.dict import *
+
 
 
 
@@ -26,8 +31,11 @@ class EKF_wraper(object):
         self.initials = pickle.load(open(processNoise_file_name , 'rb'))
         self.meas_var = pickle.load(open(MeasurementNoise_file_name, 'rb'))
         
-        self.KalmanFilters = []
+        self.KalmanFilters = [EKF(), EKF(), EKF(), EKF()]
         self.weights       = []
+        
+        self.angle_arguments = [0.0, np.pi / 2, -np.pi / 2, np.pi]
+        self.measurement_weights = [0.6, 0.1, 0.1, 0.2]
         
         self.wheelbase_to_length_ratio = 0.7
         
@@ -72,13 +80,38 @@ class EKF_wraper(object):
     def measurement_predict(self): 
         for ekf in self.KalmanFilters:
             ekf.measurement_predict()
+    
     def update(self, locs, heading, shape): 
         
-        for ekf in self.KalmanFilters:
-            detection = self.generate_detection(locs, 
-                                                heading, 
-                                                shape)
-            ekf.update(detection)
+        # should create different heading angles
+        print("Original detection ", heading)
+        new_weight = copy.copy(np.log(self.weights))
+        for filter_index, ekf in enumerate(self.KalmanFilters):
+            # use to update the different angels
+            hypothesis_weights = [0.0, 0.0, 0.0, 0.0]
+            detections         = []
+            # step 1, find the hypothesis
+            for index in range(4):
+                psudo_heading = copy.copy(heading + self.angle_arguments[index])
+                psudo_heading = normailized_heading(psudo_heading)
+                detection = self.generate_detection(locs, 
+                                                    psudo_heading, 
+                                                    shape)
+                detections.append(detection)
+                #print("step ", index , "detection is ", detection)
+                hypothesis_weights[index] = ekf.measurement_likelihood(detection) +\
+                                            np.log(self.measurement_weights[index])
+            update_detection_index = np.argmax(hypothesis_weights)
+            # setp 2: selecting the most possible hypothesis then update
+            ekf.update(detections[update_detection_index])
+            new_weight[filter_index] += hypothesis_weights[update_detection_index]
+        
+        print("old weight ", self.weights)
+        print("new weight ", np.exp(new_weight))
+        print("\n")
+            
+            
+        #print("\n")
     
     def generate_detection(self, 
                            locs, 
@@ -93,7 +126,7 @@ class EKF_wraper(object):
     
     def run_ekf(self):
         self.initial_kf()
-        print("runing the EKF")
+        #print("runing the EKF")
         
         pre_time = self.ftimes[0]
         for step in range(len(self.ftimes)): 
@@ -113,7 +146,7 @@ class EKF_wraper(object):
             
     
     def initial_kf(self):
-        ekf_tmp = EKF()
+        
         v = sqrt(self.initials['mean'][self.tracking_name][7] ** 2 +\
                  self.initials['mean'][self.tracking_name][8] ** 2)
         l = self.shapes[0][1]
@@ -129,6 +162,7 @@ class EKF_wraper(object):
                          #self.initials['mean'][self.tracking_name][0], 
                          #self.initials['mean'][self.tracking_name][5]
                         ])[:, None]
+        
         P_0 = np.diag(np.array([1.**2, 
                       1.**2, 
                       (np.pi * 10 / 180.0)**2, 
@@ -148,9 +182,20 @@ class EKF_wraper(object):
         Q_0[4][4] = self.meas_var[self.tracking_name][6]
         #Q_0[5][5] = self.meas_var[self.tracking_name][1]
         #Q_0[6][6] = self.meas_var[self.tracking_name][0]
-        ekf_tmp.create_initial(x_0=x_0, p_0 = P_0, q_0 = Q_0)
-        self.KalmanFilters.append(ekf_tmp)
-    
+        
+        
+        # should create multiple EKF with different headings.
+        self.weights = [0.6, 0.1, 0.1, 0.2]
+        
+        #print("original angle ", x_0.item(2) * (180.0 / np.pi))
+        
+        for index in range(4):
+            ang = normailized_heading(x_0.item(2) + self.angle_arguments[index])
+            x = copy.copy(x_0)
+            x.itemset(2, ang)
+            self.KalmanFilters[index].create_initial(x_0=x, 
+                                                     p_0 = copy.copy(P_0), 
+                                                     q_0 = copy.copy(Q_0))
     def plot_result(self):
         fig = plt.figure(figsize=(12, 16))
         ax = fig.add_subplot(111)
