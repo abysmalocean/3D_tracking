@@ -19,6 +19,24 @@ def quaternion_yaw(q: Quaternion):
 
     return yaw
 
+def log_sum(weight_array):
+    '''
+    weight_sum = log_sum(weight_array)
+
+    Sum of logarithmic components
+    w_sum = w_smallest + log( 1 + sum(exp(w_rest - w_smallest)) )
+    '''
+    weight_array.sort()
+    _w0 = weight_array[0]
+    _wr = weight_array[1:]
+    _wdelta = _wr - _w0
+    _exp = np.exp(_wdelta)
+    _sum = np.sum(_exp)
+    _weight = _w0 + np.log(1 + _sum)
+    
+    return _weight
+
+
 def normailized_heading(x): 
     """
     Input a heading, output a normalized heading

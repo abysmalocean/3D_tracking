@@ -241,12 +241,13 @@ class EKF():
         y_ = detection - self.z_pred
         y_.itemset(2, angle_difference(detection.item(2),
                                       self.z_pred.item(2)))
+        print("heading difference -->", y_.item(2))
         mean = np.zeros(y_.shape[0])
         prob = multivariate_normal.logpdf(y_.T, 
                                           mean = mean, 
                                           cov = self.S,
                                           allow_singular = True)
-        
+        print("pro ", prob)
         return prob
         
     
@@ -262,8 +263,14 @@ class EKF():
         
         self.P = np.dot((np.identity(7) - np.dot(self.K, self.H)), self.P)
         self.x = self.x + np.dot(self.K, y_)
+        if (self.x.item(4) < -2  * np.pi / 6):
+            self.x.itemset(4, -2 * np.pi / 6)
+        if (self.x.item(4) > 2   * np.pi / 6):
+            self.x.itemset(4, 2  * np.pi / 6)
+                
         self.post_x.append(self.x)
         self.post_p.append(self.P)
+        
 
 class EKF_old(object): 
     def __init__(self):
