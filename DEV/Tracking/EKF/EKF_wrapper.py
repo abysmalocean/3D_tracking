@@ -91,23 +91,23 @@ class EKF_wraper(object):
             # use to update the different angels
             hypothesis_weights = [0.0, 0.0, 0.0, 0.0]
             detections         = []
-            print("current heading ", ekf.x.item(2))
+            #print("current predicted heading ", ekf.x.item(2))
             # step 1, find the hypothesis
             for index in range(4):
                 psudo_heading = copy.copy(heading + self.angle_arguments[index])
                 psudo_heading = normailized_heading(psudo_heading)
-                print("measurment heading ", psudo_heading)
+                #print("measurment heading ", psudo_heading)
                 detection = self.generate_detection(locs, 
                                                     psudo_heading, 
                                                     shape)
                 detections.append(detection)
                 hypothesis_weights[index] = ekf.measurement_likelihood(detection)
-                print("\n")
+                #print("\n")
                 #hypothesis_weights[index] = ekf.measurement_likelihood(detection) +\
                 #                            np.log(self.measurement_weights[index])
             update_detection_index = np.argmax(hypothesis_weights)
-            print("hypothesis index ", update_detection_index,  " weights ", hypothesis_weights)
-            print("\n\n")
+            #print("hypothesis index ", update_detection_index,  " weights ", hypothesis_weights)
+            #print("\n\n")
             #update_detection_index = 0
             # setp 2: selecting the most possible hypothesis then update
             ekf.update(detections[update_detection_index])
@@ -122,12 +122,13 @@ class EKF_wraper(object):
         self.after_filter_states.append(self.KalmanFilters[max_weight_hypothesis_index].x)
         
         # step 4. remove the additional KF if the weight too small
+        #print("weights ", self.weights)
         if len(self.KalmanFilters) > 1:
             remove_indexs = []
             new_list_filter = []
             new_list_weight = []
             for index in range(len(self.KalmanFilters)): 
-                if self.weights[index] < 0.01:
+                if self.weights[index] < 0.1: # TODO: change this number after figure out the updating
                     remove_indexs.append(index)
                 else: 
                     new_list_filter.append(self.KalmanFilters[index])
@@ -188,6 +189,8 @@ class EKF_wraper(object):
                          #self.initials['mean'][self.tracking_name][0], 
                          #self.initials['mean'][self.tracking_name][5]
                         ])[:, None]
+        print(self.initials['var'][self.tracking_name][1] + 0.1)
+        print(self.initials['var'][self.tracking_name][2] + 0.1)
         
         P_0 = np.diag(np.array([1.**2, 
                       1.**2, 
