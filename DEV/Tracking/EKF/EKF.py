@@ -229,7 +229,8 @@ class EKF():
         return self.x
     
     def measurement_predict(self):
-        self.z_pred = self.predict_measurment()
+        # TODO: check the angle update, predictions
+        self.z_pred = self.predict_measurment() % (2 * np.pi)
         self.H      = self.gererate_dH()
         self.S = np.dot(np.dot(self.H, self.P), self.H.transpose()) + self.Q
         self.K = np.dot(np.dot(self.P, self.H.transpose()), np.linalg.inv(self.S))
