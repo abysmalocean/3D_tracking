@@ -458,8 +458,6 @@ class EKFNet(object):
             
             
             # Back update
-            # TODO: modify this part
-            print(dx_post)
             dx_post + dx_post_prev
             dp_post + dp_post_prev
             dx_pred_u, dp_pred_u, dH, dS, dy_ = self.\
@@ -564,7 +562,6 @@ class EKFNet(object):
             dS
             dy_
         '''
-        # TODO: working on the update backward part
         x_pred, p_pred, H, S, y_, PHT, S_inv, K, KH, IKH = cache
  
         """
@@ -637,6 +634,10 @@ class EKFNet(object):
         dR    
         '''
         R, H, PHT, S, y_, x_pred, p_pred, z = cache
+        '''
+        1. step1. for
+        S_k = H_K P_K H_K.T + R_k
+        '''
         dR = dS
         dPHT = np.dot(H.T, dS)
         dp_pred = np.dot(dPHT, H)
@@ -644,17 +645,24 @@ class EKFNet(object):
         dHT = np.dot(p_pred.T, dPHT)
         dH += np.dot(dS, PHT.T) + dHT.T
 
+        """
+        2. step2 for the residual
+        y_ = z_k - h(x_{k|k-1})
+        """
         dx_pred   = np.zeros(7)
-        """
-        l = EKF_filter.imu_off_l
-        alpha = EKF_filter.imu_alpha
-        """
+        center_rare = self.wheelbase_to_length_ratio / 2.0
+        l = x_pred[6]  # 0.3 is the center to rear center
         
-        # TODO: The part need to change to the current measurement model
-        l = x_pred[6]
-        dx_pred[2] +=  l * cos(x_pred[2]) * dH[0,2]
-        dx_pred[2] +=  l * sin(x_pred[2]) * dH[1,2]
-
+        # for the heading angle
+        dx_pred[2] += -center_rare * l * cos(x_pred[2]) * dH[0,2]
+        dx_pred[2] += -center_rare * l * sin(x_pred[2]) * dH[1,2]
+        dx_pred[2] += -center_rare * sin(x_pred[2]) * dH[0,6]
+        dx_pred[2] +=  center_rare * cos(x_pred[2]) * dH[1,6]
+        
+        # for the vehicle length
+        dx_pred[6] +=  center_rare * sin(x_pred[2]) * dH[0,2]
+        dx_pred[6] +=  center_rare * cos(x_pred[2]) * dH[1,2]
+        
         dx_pred = np.add(-np.dot(H.T, dy_).T, dx_pred).T
         #print(dx_pred)
         return dx_pred, dp_pred, dR 
@@ -681,6 +689,7 @@ class EKFNet(object):
 
     def prediction_backward(self, dx_pred, dp_pred, cache):
         '''
+        TODO: working on this part with uncertainty analysis
         should output the deraitive
         dx_post : state 
         dp_post : cov
@@ -689,7 +698,9 @@ class EKFNet(object):
         '''
 
         B, F, FP, FPFt, QBT, Q, x_post, p_post, dt, Q_acc, Q_other = cache
-
+        '''
+        Step 1, is hte P_{k|k-1} = F_k * P_{k-1|k-1}* F_k.T + Q
+        '''
         # Get dF
         dFP = np.dot(dp_pred, F)
         dF_1 = (np.dot(FP.T, dp_pred)).T
@@ -698,12 +709,12 @@ class EKFNet(object):
 
         # Get the dp_post
         dp_post = np.dot(F.T, dFP)
-        # TODO: check this function, something wrong
+        
         dx_post = self.get_dx_post_int_prediction(x_post, dF, dt)
 
         # Get dQ
-        dQ = dp_pred
-        dQ_other = dQ
+        dQ        = dp_pred
+        dQ_other  = dQ
         dQBT      = np.dot(B.T, dQ)
         dQ_acc    = np.dot(dQBT, B)
         dBT       = np.dot(Q_acc.T, dQBT)
@@ -713,25 +724,24 @@ class EKFNet(object):
         dx_post[2] +=  0.5 * (dt**2) * cos(x_post[2]) * dB[1,0]
 
         ## From Eq1
-        print(F.T)
+        #print(dx_post.shape)
         dx_post += np.dot(F.T ,dx_pred)
-
-
+        
         return dx_post, dp_post, dQ_acc, dQ_other
 
     def get_dx_post_int_prediction(self, x_post, dF, dt):
-        # TODO: modify this fucntion.
         # something wrong with the new implementation
         dx_post = np.zeros(x_post.shape)
         
-
         state = x_post
         x = state.item(0)
         y = state.item(1)
         th = state.item(2)
         v = state.item(3)
         phi = state.item(4)
-        wheelbase = state.item(6)
+        w = state.item(5)
+        l = state.item(6)
+        wheelbase = self.wheelbase_to_length_ratio * l
         
         # dF[0,2]
         dth_F02  = -cos(th) * cos(phi) * v * dt * dF[0,2]
@@ -761,14 +771,25 @@ class EKFNet(object):
         dv_F14   = -sin(th) * sin(phi) *     dt * dF[1,4]
 
         # dF[2, 3]
+        # TODO: change need to be done from now on
+        # FIXME: if any bug in this part
         dth_F23  = 0.0
         dphi_F23 = (cos(phi) * dt / wheelbase) * dF[2,3]
         dv_F23   = 0.0
+        dl_F23   = -(sin(phi) * dt) / (wheelbase * l) * dF[2,3] # to the l new added
 
         # dF[2, 4]
         dth_F24  = 0.0
         dphi_F24 = (-sin(phi) * v * dt / wheelbase) * dF[2,4]
         dv_F24   = ( cos(phi)     * dt / wheelbase) * dF[2,4]
+        dl_F24   = (cos(phi)  * v * dt) / (wheelbase * l) * dF[2,4]
+        
+        # dF[2, 6] # newly added for unceratinty awared EKF
+        dth_F26  = 0.0
+        dphi_F26 = (-cos(phi) * v * dt) / (wheelbase * l)  * dF[2,6]
+        dv_F26   = (-sin(phi)     * dt) / (wheelbase * l)  * dF[2,6]
+        dl_F26   = (2 * sin(phi) * v * dt) /(wheelbase * l * l) * dF[2,6]
+        
 
         dx_post[2] = dth_F02 + dth_F03 + dth_F04 + dth_F12 + dth_F13 + \
                      dth_F14 + dth_F23 + dth_F24 
@@ -776,14 +797,18 @@ class EKFNet(object):
                      dphi_F12 + dphi_F13 + dphi_F14 + \
                      dphi_F23 + dphi_F24
         dx_post[3] = dv_F02 + dv_F03 + dv_F04 + \
-                     dv_F12 + dv_F13 + dv_F14 +\
+                     dv_F12 + dv_F13 + dv_F14 + \
                      dv_F23 + dv_F24
-        dx_post_tmp = np.random.randn(5,1)
+        dx_post[6] = dl_F24 + dl_F26 # this is newly added
+        
+        dx_post_tmp = np.random.randn(7,1)
         dx_post_tmp[0,0] = 0.0
         dx_post_tmp[1,0] = 0.0
         dx_post_tmp[2,0] = dx_post[2]
         dx_post_tmp[3,0] = dx_post[3]
         dx_post_tmp[4,0] = dx_post[4]
+        dx_post_tmp[5,0] = 0.0  
+        dx_post_tmp[6,0] = dx_post[6]
 
         return dx_post_tmp
 

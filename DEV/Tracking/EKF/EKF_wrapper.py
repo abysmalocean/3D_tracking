@@ -106,15 +106,11 @@ class EKF_wraper(object):
                 #hypothesis_weights[index] = ekf.measurement_likelihood(detection) +\
                 #                            np.log(self.measurement_weights[index])
             update_detection_index = np.argmax(hypothesis_weights)
-            #print("hypothesis index ", update_detection_index,  " weights ", hypothesis_weights)
-            #print("\n\n")
-            #update_detection_index = 0
             # setp 2: selecting the most possible hypothesis then update
             ekf.update(detections[update_detection_index])
             new_weight[filter_index] += hypothesis_weights[update_detection_index]
         
         log_weights = log_sum(copy.copy(new_weight))
-        #print("new normalized ", np.exp(new_weight - log_weights))
         self.weights = np.exp(new_weight - log_weights)
         
         # setp 3. get the posterior

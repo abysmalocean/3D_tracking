@@ -118,12 +118,12 @@ class EKF():
         
         # for x
         H[0, 0] = 1.0
-        H[0, 2] = self.wheelbase_to_length_ratio / 2.0 * l * cos(th)
-        H[0, 6] = self.wheelbase_to_length_ratio / 2.0 * sin(th)
+        H[0, 2] = -self.wheelbase_to_length_ratio / 2.0 * l * sin(th)
+        H[0, 6] = self.wheelbase_to_length_ratio / 2.0 * cos(th)
         # for y
         H[1, 1] = 1.0
-        H[1, 2] = -self.wheelbase_to_length_ratio / 2.0 * l * sin(th)
-        H[1, 6] = self.wheelbase_to_length_ratio / 2.0 * cos(th)
+        H[1, 2] = self.wheelbase_to_length_ratio / 2.0 * l * cos(th)
+        H[1, 6] = self.wheelbase_to_length_ratio / 2.0 * sin(th)
         
         # for th
         H[2, 2] = 1.0
@@ -229,7 +229,6 @@ class EKF():
         return self.x
     
     def measurement_predict(self):
-        # TODO: check the angle update, predictions
         self.z_pred = self.predict_measurment()
         self.H      = self.gererate_dH()
         self.S = np.dot(np.dot(self.H, self.P), self.H.transpose()) + self.Q
@@ -260,10 +259,12 @@ class EKF():
         
         self.P = np.dot((np.identity(7) - np.dot(self.K, self.H)), self.P)
         self.x = self.x + np.dot(self.K, y_)
-        if (self.x.item(4) < -2  * np.pi / 6):
-            self.x.itemset(4, -2 * np.pi / 6)
-        if (self.x.item(4) > 2   * np.pi / 6):
-            self.x.itemset(4, 2  * np.pi / 6)
+        
+        if (self.x.item(4) < -2  * np.pi / 10):
+            self.x.itemset(4, -2 * np.pi / 10)
+        if (self.x.item(4) > 2   * np.pi / 10):
+            self.x.itemset(4, 2  * np.pi / 10)
+        
         self.post_x.append(self.x)
         self.post_p.append(self.P)
         
