@@ -12,7 +12,7 @@ from utils.utils import normailized_heading, log_sum
 from EKF.EKF import *
 from utils.dict import *
 
-
+DEBUG = False
 
 
 class EKF_wraper(object): 
@@ -34,7 +34,7 @@ class EKF_wraper(object):
         self.weights       = []
         
         self.angle_arguments = [0.0, np.pi / 2, -np.pi / 2, np.pi]
-        self.measurement_weights = [0.7, 0.1, 0.1, 0.1]
+        self.measurement_weights = [0.9, 0.1, 0.1, 0.1]
         
         self.wheelbase_to_length_ratio = 0.7
         
@@ -85,12 +85,13 @@ class EKF_wraper(object):
     def update(self, locs, heading, shape): 
         
         # should create different heading angles
-        new_weight = copy.copy(np.log(self.weights))
+        new_weight = copy.copy(self.weights)
         
         for filter_index, ekf in enumerate(self.KalmanFilters):
             # use to update the different angels
             hypothesis_weights = [0.0, 0.0, 0.0, 0.0]
             detections         = []
+            #print("Hypothesis index ", filter_index)
             #print("current predicted heading ", ekf.x.item(2))
             # step 1, find the hypothesis
             for index in range(4):
@@ -103,38 +104,40 @@ class EKF_wraper(object):
                 detections.append(detection)
                 hypothesis_weights[index] = ekf.measurement_likelihood(detection)
                 #print("\n")
-                #hypothesis_weights[index] = ekf.measurement_likelihood(detection) +\
-                #                            np.log(self.measurement_weights[index])
+                hypothesis_weights[index] = ekf.measurement_likelihood(detection) +\
+                                            np.log(self.measurement_weights[index])
+            #print("each heading weight ", hypothesis_weights)
             update_detection_index = np.argmax(hypothesis_weights)
             # setp 2: selecting the most possible hypothesis then update
             ekf.update(detections[update_detection_index])
             new_weight[filter_index] += hypothesis_weights[update_detection_index]
         
         log_weights = log_sum(copy.copy(new_weight))
-        self.weights = np.exp(new_weight - log_weights)
+        self.weights = new_weight - log_weights
         
         # setp 3. get the posterior
         max_weight_hypothesis_index = np.argmax(self.weights)
         self.after_filter_states.append(self.KalmanFilters[max_weight_hypothesis_index].x)
         
+
+        #print("index going to removed ", remove_indexs)
+    
+    def reduce_kf(self):
         # step 4. remove the additional KF if the weight too small
         #print("weights ", self.weights)
-        if len(self.KalmanFilters) > 1:
-            remove_indexs = []
-            new_list_filter = []
-            new_list_weight = []
-            for index in range(len(self.KalmanFilters)): 
-                if self.weights[index] < 0.1: # TODO: change this number after figure out the updating
-                    remove_indexs.append(index)
-                else: 
-                    new_list_filter.append(self.KalmanFilters[index])
-                    new_list_weight.append(self.weights[index])
-            self.KalmanFilters = new_list_filter
-            self.weights = new_list_weight
-            #print("index going to removed ", remove_indexs)
+        remove_indexs = []
+        new_list_filter = []
+        new_list_weight = []
         
-        
-        #print("\n")
+        for index in range(len(self.KalmanFilters)): 
+            if self.weights[index] < np.log(0.00001): # TODO: change this number after figure out the updating
+                remove_indexs.append(index)
+            else: 
+                new_list_filter.append(self.KalmanFilters[index])
+                new_list_weight.append(self.weights[index])
+        self.KalmanFilters = new_list_filter
+        self.weights = new_list_weight
+            
     
     def generate_detection(self, 
                            locs, 
@@ -164,7 +167,34 @@ class EKF_wraper(object):
             self.update(locs=self.locs[step], 
                         heading=self.headings[step],
                         shape=self.shapes[step])
+            #print("current weights ", np.exp(self.weights))
+            if len(self.KalmanFilters) > 1 and step != 0:
+                if DEBUG:
+                    for ekf_i, ekf in enumerate(self.KalmanFilters):
+                        print( "[ ", ekf_i, "] heading : ", ekf.x[2])
+                self.reduce_kf()
+            elif step == 0: 
+                self.weights = np.log([0.35, 0.20, 0.2, 0.25])
+            
             pre_time = self.ftimes[step]
+            if DEBUG: 
+                print("step ", step, self.locs[step], " dt ", dt)
+            
+                print("detection x:{}, y:{}, heading:{}".format(self.locs[step][0], 
+                                                                               self.locs[step][1],
+                                                                               self.headings[step]) )
+
+                print("x {}, y {}, th{}, v{}, ph:{}, w:{}, l:{}".format(self.after_filter_states[-1][0],
+                                                                        self.after_filter_states[-1][1],
+                                                                        self.after_filter_states[-1][2],
+                                                                        self.after_filter_states[-1][3],
+                                                                        self.after_filter_states[-1][4],
+                                                                        self.after_filter_states[-1][5],
+                                                                        self.after_filter_states[-1][6]))
+                print("Hypotheses weights ", np.exp(self.weights))
+                print("\n")
+            
+            
         #print("Size of posterior", len(self.KalmanFilters[0].post_x))
             
     
@@ -172,6 +202,7 @@ class EKF_wraper(object):
         
         v = sqrt(self.initials['mean'][self.tracking_name][7] ** 2 +\
                  self.initials['mean'][self.tracking_name][8] ** 2)
+        v = 15
         l = self.shapes[0][1]
         th = self.headings[0]
         
@@ -185,24 +216,21 @@ class EKF_wraper(object):
                          #self.initials['mean'][self.tracking_name][0], 
                          #self.initials['mean'][self.tracking_name][5]
                         ])[:, None]
-        print(self.initials['var'][self.tracking_name][1] + 0.1)
-        print(self.initials['var'][self.tracking_name][2] + 0.1)
         
-        P_0 = np.diag(np.array([1.**2, 
-                      1.**2, 
-                      (np.pi * 10 / 180.0)**2, 
-                      (10**2), 
-                      (0.1 * 0.1), 
+        P_0 = np.diag(np.array([2.**2, 
+                      2.**2, 
+                      (np.pi * 15 / 180.0)**2, 
+                      (20**2), 
+                      (0.2 * 0.2), 
                       self.initials['var'][self.tracking_name][1] + 0.1,
                       self.initials['var'][self.tracking_name][2] + 0.1
                       #self.initials['var'][self.tracking_name][0] + 0.1, 
                       #self.initials['var'][self.tracking_name][5] + 0.1
                       ]))
         Q_0 = np.zeros((5, 5))
-        Q_0[0][0] = self.meas_var[self.tracking_name][3]
-        Q_0[1][1] = self.meas_var[self.tracking_name][4]
-        Q_0[2][2] = self.meas_var[self.tracking_name][5]
-        #print(Q_0[2][2])
+        Q_0[0][0] = self.meas_var[self.tracking_name][3] + .5
+        Q_0[1][1] = self.meas_var[self.tracking_name][4] + .5
+        Q_0[2][2] = self.meas_var[self.tracking_name][5] + 0.1
         
         Q_0[3][3] = self.meas_var[self.tracking_name][2]    
         Q_0[4][4] = self.meas_var[self.tracking_name][6]
@@ -211,7 +239,7 @@ class EKF_wraper(object):
         
         
         # should create multiple EKF with different headings.
-        self.weights = [0.6, 0.1, 0.1, 0.2]
+        self.weights = [0.35, 0.2, 0.2, 0.2]
         
         #print("original angle ", x_0.item(2) * (180.0 / np.pi))
         
@@ -223,20 +251,41 @@ class EKF_wraper(object):
                                                      p_0 = copy.copy(P_0), 
                                                      q_0 = copy.copy(Q_0))
     def plot_result(self):
-        fig = plt.figure(figsize=(12, 16))
+        fig = plt.figure(figsize=(30, 30))
         ax = fig.add_subplot(111)
         loc = np.array(self.locs)
-        plt.scatter(loc[0,0], loc[0,1], c='r', s=50, marker="+", 
-                label="{}".format("Center Measurements"))
+        plt.scatter(loc[0,0], loc[0,1], c='r', s=500, marker="x", 
+                label="{}".format("begining"))
         
         plt.scatter(loc[1:,0], loc[1:,1], c='b', s=50, marker="+", 
                 label="{}".format("Center Measurements"))
         
         loc = np.array(self.after_filter_states)
+        headings = np.array(self.after_filter_states)[:,2]
         
         plt.scatter(loc[:,0], loc[:,1], c='y', s=50, marker="1", 
                 label="{}".format("After Kalman Filter"))
         plt.plot(loc[:,0], loc[:,1], c='y')
+        
+        # plot heading
+        ax.quiver(list(list(zip(*loc))[0]),
+                  list(list(zip(*loc))[1]),
+                  [np.cos(h) for h in headings],
+                  [np.sin(h) for h in headings],
+                  angles='xy',
+                  scale_units='xy',
+                  scale= 0.5 ,
+                  color='g')
+        
+        ax.quiver(loc[0][0],
+                  loc[0][1],
+                  np.cos(headings[0]),
+                  np.sin(headings[0]),
+                  angles='xy',
+                  scale_units='xy',
+                  scale= 0.5 ,
+                  color='r')
+        
         ax.axis('equal')
         ax.legend()
         plt.show()

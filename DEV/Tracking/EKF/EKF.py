@@ -140,8 +140,8 @@ class EKF():
     def new_R(self, 
               state, 
               dt, 
-              maxacc = 3.0, 
-              maxsteeringacc = 0.6):
+              maxacc = 5.0, 
+              maxsteeringacc = 0.3):
         
         max_linear_acc    = maxacc
         max_steering_rate = maxsteeringacc
@@ -240,7 +240,7 @@ class EKF():
         """
         y_ = detection - self.z_pred
         y_.itemset(2, angle_difference(detection.item(2),
-                                      self.z_pred.item(2)) * 10)
+                                      self.z_pred.item(2)))
         #print("heading difference -->", y_.item(2))
         mean = np.zeros(y_.shape[0])
         prob = multivariate_normal.logpdf(y_.T, 
@@ -260,10 +260,15 @@ class EKF():
         self.P = np.dot((np.identity(7) - np.dot(self.K, self.H)), self.P)
         self.x = self.x + np.dot(self.K, y_)
         
-        if (self.x.item(4) < -2  * np.pi / 10):
-            self.x.itemset(4, -2 * np.pi / 10)
-        if (self.x.item(4) > 2   * np.pi / 10):
-            self.x.itemset(4, 2  * np.pi / 10)
+        # not turning to quick
+        if (self.x.item(4) < -2  * np.pi / 6):
+            self.x.itemset(4, -2 * np.pi / 6)
+        if (self.x.item(4) > 2   * np.pi / 6):
+            self.x.itemset(4, 2  * np.pi / 6)
+        
+        # speed should greater than 0
+        if self.x.item(3) < -5.0:
+            self.x.itemset(3, -5.0)
         
         self.post_x.append(self.x)
         self.post_p.append(self.P)
