@@ -2,6 +2,10 @@ import os, copy, glob, glob2, numpy as np, colorsys
 from numba import jit
 from pyquaternion import Quaternion
 
+def yaw2quaternion(yaw: float):
+    return Quaternion(axis=[0, 0, 1], radians=yaw)
+
+
 def quaternion_yaw(q: Quaternion):
     """
     Calculate the yaw angle from a quaternion.

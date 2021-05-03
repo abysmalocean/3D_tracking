@@ -44,6 +44,12 @@ class EKF():
         
         self.post_x = []
         self.post_p = []
+        
+        # data used for smoother
+        self.A = [] # predicted Jocobian for state transiton
+        self.x_smooth = [] # updated states
+        self.V = [] # updated covariance
+        self.W = [] # predicted covariance
     # initialize the States
     def create_initial(
         self, 
@@ -197,8 +203,9 @@ class EKF():
         cov[6][6] = self.l_var
         return cov
     
-    def predict(self, dt):
-        state = self.x
+    def predict(self, dt, state = None):
+        if state is None:
+            state = self.x
         #assert state, None
         x   = state.item(0)
         y   = state.item(1)
@@ -226,6 +233,9 @@ class EKF():
         self.x = temp_x
         self.P = PropCov
         
+        # used for smoother
+        self.A.append(tmpG)
+        self.W.append(PropCov)
         return self.x
     
     def measurement_predict(self):
@@ -249,7 +259,6 @@ class EKF():
                                           allow_singular = True)
         #print("pro ", prob)
         return prob
-        
     
     def update(self, detection):
         #print("measurement ", detection[0], detection[1])
@@ -273,7 +282,39 @@ class EKF():
         self.post_x.append(self.x)
         self.post_p.append(self.P)
         
+        # for smoother
+        self.x_smooth.append(self.x)
+        self.V.append(self.P)
         
+    def smoother(self, ftimes): 
+            meas_times = ftimes
+            NSteps = len(meas_times)
+            kf_result_obj = None
+            kf_result_obj = After_filter()
+
+            x_T = []
+            p_T = []
+            
+            x = self.x_smooth
+            V = self.V
+            W = self.W
+            A = self.A
+            
+            for i in range(NSteps - 1 , -1, -1):
+                if i == NSteps - 1:
+                    x_T.insert(0, self.x_smooth[i])
+                    p_T.insert(0, self.V[i])
+                else:
+                    Jt = np.dot(np.dot(V[i], A[i].transpose()), np.linalg.inv(W[i]))
+
+                    x_T.insert(0, x[i] + np.dot(Jt, (x_T[0] - self.predict
+                                     (meas_times[i + 1] - meas_times[i], state=x[i]))))
+
+                    p_T.insert(0, V[i] + np.dot(np.dot(Jt, (p_T[0] - W[i+1])), \
+                                                Jt.transpose()))
+            kf_result_obj.x = x_T
+            kf_result_obj.V = p_T
+            self.afterSmooth = kf_result_obj        
 
 
 

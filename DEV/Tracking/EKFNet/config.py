@@ -4,7 +4,7 @@ config = {
     "RMS_post"               : True,
     "Likelihood_measurement" : False , 
     "Likelihood_post"        : False, 
-    "interval"               : 50,
+    "interval"               : 1,
     "update_rule"            : "adam",
     
     "batch_size"             : 10, 
