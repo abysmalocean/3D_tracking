@@ -5,8 +5,7 @@ from scipy.stats import multivariate_normal
 from utils.utils import angle_difference
 from matplotlib import pyplot as plt
 
-
-np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
+#np.set_printoptions(formatter={'float': lambda x: "{0:0.2f}".format(x)})
 
 class After_filter(object):
     def __init__(self):
@@ -27,6 +26,7 @@ class After_filter(object):
         # Kalman Update Information
         self.S = []
         self.K = []
+        
 
 class EKF(): 
     def __init__(self, tracking_name = 'car'):
@@ -46,10 +46,12 @@ class EKF():
         self.post_p = []
         
         # data used for smoother
+        self.afterSmooth = After_filter()
         self.A = [] # predicted Jocobian for state transiton
         self.x_smooth = [] # updated states
         self.V = [] # updated covariance
         self.W = [] # predicted covariance
+        
     # initialize the States
     def create_initial(
         self, 
@@ -63,6 +65,8 @@ class EKF():
         self.w_var = p_0[5][5]
         self.l_var = p_0[6][6]
         #print("create Initial")
+        # for smoother
+        self.W.append(self.P)
         
     def G(self, state, dt):
         x = state.item(0)
@@ -217,7 +221,8 @@ class EKF():
         #h   = state.item(7)
         #z   = state.item(8)
         
-        # predict the state
+        # predict the state 
+        '''
         temp_x =  np.array([x + self.wheelbase_to_length_ratio * l * cos(th) / 2.0,
                             y + self.wheelbase_to_length_ratio * l * sin(th) / 2.0,
                             th + sin(phi) * v * dt / (l * self.wheelbase_to_length_ratio),
@@ -225,6 +230,22 @@ class EKF():
                             phi,
                             l,
                             w ])[:, None]
+        
+        temp_x = np.array([x + cos(th) * cos(phi) * v * dt,
+                         y + sin(th) * cos(phi) * v * dt,
+                         th + sin(phi) * v * dt / wheelbase,
+                         v,
+                         phi,
+                         w,
+                         h])[:, None]
+        '''
+        temp_x =  np.array([x + cos(th) * cos(phi) * v * dt,
+                            y + sin(th) * cos(phi) * v * dt,
+                            th + sin(phi) * v * dt / (l * self.wheelbase_to_length_ratio),
+                            v, 
+                            phi,
+                            w,
+                            l ])[:, None]
         
         # predict the covariance
         tmpG = self.G(state, dt)
@@ -265,6 +286,7 @@ class EKF():
         y_ = detection - self.z_pred
         y_.itemset(2, angle_difference(detection.item(2),
                                       self.z_pred.item(2)% (2 * np.pi)))
+        #print(y_.item(2))
         
         self.P = np.dot((np.identity(7) - np.dot(self.K, self.H)), self.P)
         self.x = self.x + np.dot(self.K, y_)
@@ -276,8 +298,8 @@ class EKF():
             self.x.itemset(4, 2  * np.pi / 6)
         
         # speed should greater than 0
-        if self.x.item(3) < -5.0:
-            self.x.itemset(3, -5.0)
+        if self.x.item(3) < -10.0:
+            self.x.itemset(3, -10.0)
         
         self.post_x.append(self.x)
         self.post_p.append(self.P)
@@ -300,12 +322,13 @@ class EKF():
             W = self.W
             A = self.A
             
+            #print(len(self.x_smooth), len(V), len(W), len(A))
             for i in range(NSteps - 1 , -1, -1):
                 if i == NSteps - 1:
                     x_T.insert(0, self.x_smooth[i])
                     p_T.insert(0, self.V[i])
                 else:
-                    Jt = np.dot(np.dot(V[i], A[i].transpose()), np.linalg.inv(W[i]))
+                    Jt = np.dot(np.dot(V[i], A[i].transpose()), np.linalg.inv(W[i+1]))
 
                     x_T.insert(0, x[i] + np.dot(Jt, (x_T[0] - self.predict
                                      (meas_times[i + 1] - meas_times[i], state=x[i]))))

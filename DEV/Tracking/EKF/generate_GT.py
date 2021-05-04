@@ -67,10 +67,18 @@ class EKF_GT(object):
             
             corrected_angle = angles[diff_ang_index]
             corrected_q = yaw2quaternion(corrected_angle)
+            
+            # correct the detection data to the GT data
+            #current_frame['detection'].rotation = current_frame['sample_annotation']['rotation']
+            #current_frame['detection'].translation = current_frame['sample_annotation']['translation']
+            #current_frame['detection'].shapes = current_frame['sample_annotation']['size']
+            
+            # corrent the heading of the detection data
             current_frame['detection'].rotation = corrected_q
             
+            
             self.locs.append(current_frame['sample_annotation']['translation'])
-            self.headings.append(corrected_angle)
+            self.headings.append(GT_heading)
             self.shapes.append(current_frame['sample_annotation']['size'])
             self.ftimes.append(current_frame['sample_data_lidar']['timestamp'] / 1000000)
             
@@ -103,17 +111,14 @@ class EKF_GT(object):
                                                 self.shapes[step])
             self.KalmanFilter.update(detection)
             self.after_filter_states.append(self.KalmanFilter.x)
-        
-        self.KalmanFilter.smoother(self.ftimes)
-                
-                
-        
+        self.KalmanFilter.afterSmooth.x = self.KalmanFilter.x_smooth
+        #self.KalmanFilter.smoother(self.ftimes)
     
     def initial_kf(self):
         
         v = sqrt(self.initials['mean'][self.tracking_name][7] ** 2 +\
                  self.initials['mean'][self.tracking_name][8] ** 2)
-        v = 15
+        v = 5.0
         l = self.shapes[0][1]
         th = self.headings[0]
         
@@ -138,10 +143,11 @@ class EKF_GT(object):
                       #self.initials['var'][self.tracking_name][0] + 0.1, 
                       #self.initials['var'][self.tracking_name][5] + 0.1
                       ]))
+    
         Q_0 = np.zeros((5, 5))
-        Q_0[0][0] = self.meas_var[self.tracking_name][3] + .5
-        Q_0[1][1] = self.meas_var[self.tracking_name][4] + .5
-        Q_0[2][2] = self.meas_var[self.tracking_name][5] + 0.1
+        Q_0[0][0] = self.meas_var[self.tracking_name][3]
+        Q_0[1][1] = self.meas_var[self.tracking_name][4]
+        Q_0[2][2] = self.meas_var[self.tracking_name][5] 
         
         Q_0[3][3] = self.meas_var[self.tracking_name][2]    
         Q_0[4][4] = self.meas_var[self.tracking_name][6]
@@ -176,6 +182,7 @@ class EKF_GT(object):
         plt.plot(loc[:,0], loc[:,1], c='y')
         
         # plot heading
+        #headings = self.headings
         ax.quiver(list(list(zip(*loc))[0]),
                   list(list(zip(*loc))[1]),
                   [np.cos(h) for h in headings],

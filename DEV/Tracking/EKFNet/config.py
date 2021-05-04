@@ -1,9 +1,9 @@
 
 config = {
-    "RMS_measurement"        : False,
+    "RMS_measurement"        : True,
     "RMS_post"               : True,
-    "Likelihood_measurement" : False , 
-    "Likelihood_post"        : False, 
+    "Likelihood_measurement" : True , 
+    "Likelihood_post"        : True, 
     "interval"               : 1,
     "update_rule"            : "adam",
     

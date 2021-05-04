@@ -150,7 +150,7 @@ class EKF_wraper(object):
                         shape[1]])[:, None]
         return det
     
-    def run_ekf(self):
+    def run_ekf(self, run_smoother = False):
         self.initial_kf()
         #print("runing the EKF")
         
@@ -193,7 +193,9 @@ class EKF_wraper(object):
                                                                         self.after_filter_states[-1][6]))
                 print("Hypotheses weights ", np.exp(self.weights))
                 print("\n")
-            
+        if run_smoother: 
+            for ekf in self.KalmanFilters:
+                ekf.smoother(self.ftimes)
             
         #print("Size of posterior", len(self.KalmanFilters[0].post_x))
             
@@ -202,7 +204,7 @@ class EKF_wraper(object):
         
         v = sqrt(self.initials['mean'][self.tracking_name][7] ** 2 +\
                  self.initials['mean'][self.tracking_name][8] ** 2)
-        v = 15
+        v = 5.0
         l = self.shapes[0][1]
         th = self.headings[0]
         
@@ -250,7 +252,7 @@ class EKF_wraper(object):
             self.KalmanFilters[index].create_initial(x_0=x, 
                                                      p_0 = copy.copy(P_0), 
                                                      q_0 = copy.copy(Q_0))
-    def plot_result(self):
+    def plot_result(self, smoother = False):
         fig = plt.figure(figsize=(30, 30))
         ax = fig.add_subplot(111)
         loc = np.array(self.locs)
@@ -260,11 +262,17 @@ class EKF_wraper(object):
         plt.scatter(loc[1:,0], loc[1:,1], c='b', s=50, marker="+", 
                 label="{}".format("Center Measurements"))
         
-        loc = np.array(self.after_filter_states)
-        headings = np.array(self.after_filter_states)[:,2]
-        
+        if smoother:
+            loc = np.array(self.KalmanFilters[0].afterSmooth.x)[:,0:2]
+            headings = np.array(self.KalmanFilters[0].afterSmooth.x)[:,2]
+            string_out = "After Kalman Smoother"
+        else: 
+            loc = np.array(self.after_filter_states)
+            headings = np.array(self.after_filter_states)[:,2]
+            string_out = "After Kalman Filter"
+            
         plt.scatter(loc[:,0], loc[:,1], c='y', s=50, marker="1", 
-                label="{}".format("After Kalman Filter"))
+                label="{}".format(string_out))
         plt.plot(loc[:,0], loc[:,1], c='y')
         
         # plot heading

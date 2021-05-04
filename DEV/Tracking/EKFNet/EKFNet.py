@@ -78,6 +78,9 @@ class EKFNet(object):
         # Configration
         self.config = config.config
         
+        # gt data
+        self.gt = None
+        
         print("Uncertainty aware with EKF filter")
         
     def set_paramters(self, parameters = None): 
@@ -105,7 +108,11 @@ class EKFNet(object):
             self.sigma_v           = 0.0
             self.sigma_p           = 0.0
 
-    def load_data_set(self, datasets):
+    def load_data_set(self, datasets = None, gt = None):
+        if datasets is None: 
+            print("No detection founded")
+        
+        self.gt = gt
         
         for index in range(len(datasets)): 
             current_frame = datasets[index]
@@ -143,13 +150,13 @@ class EKFNet(object):
         w   = state.item(5)
         l   = state.item(6)
         
-        return np.array([x + self.wheelbase_to_length_ratio * l * cos(th) / 2.0,
-                            y + self.wheelbase_to_length_ratio * l * sin(th) / 2.0,
-                            th + sin(phi) * v * dt / (l * self.wheelbase_to_length_ratio),
-                            v, 
-                            phi,
-                            l,
-                            w ])[:, None]
+        return np.array([x + cos(th) * cos(phi) * v * dt,
+                         y + sin(th) * cos(phi) * v * dt,
+                         th + sin(phi) * v * dt / (l * self.wheelbase_to_length_ratio),
+                         v, 
+                         phi,
+                         w,
+                         l ])[:, None] 
         
 
     def G(self, state, dt):
@@ -314,13 +321,11 @@ class EKFNet(object):
     def run_EKF_NET_forward(self):
         
         # initial the x_0
-        v = 0.02361 # from the statistics
+        v = 5.0 # from the statistics
         l = self.shapes[0][1]
         th = self.headings[0]
         w_mean = 1.96 # from statistics
         l_mean = 4.62 # from statistics
-        
-        
         
         x_0  = np.array([self.locs[0][0] - self.wheelbase_to_length_ratio * l * cos(th) / 2.0 , 
                          self.locs[0][1] - self.wheelbase_to_length_ratio * l * sin(th) / 2.0 , 
@@ -330,14 +335,14 @@ class EKFNet(object):
                          w_mean,
                          l_mean
                         ])[:, None]
-        w_var = 0.13497975860270023
-        l_var = 0.3125658129024935
+        w_var = 0.23497975860270023
+        l_var = 0.4125658129024935
         
-        P_0 = np.diag(np.array([1.**2, 
-                      1.**2, 
-                      (np.pi * 10 / 180.0)**2, 
-                      (10**2), 
-                      (0.1 * 0.1), 
+        P_0 = np.diag(np.array([2.**2, 
+                      2.**2, 
+                      (np.pi * 15 / 180.0)**2, 
+                      (20**2), 
+                      (0.2 * 0.2), 
                       w_var,
                       l_var
                       ]))
@@ -819,7 +824,7 @@ class EKFNet(object):
         T = len(self.headings)
         #print("Liang Calculate the gradients", str(T))
         # Ground Truth 
-        x_gt = self.datasets.afterSmooth.x[0::self.config["interval"]]
+        x_gt = self.gt
         x_gt = np.array(x_gt[0:len(self.locs)])
 
         for i in range(0 , T):
@@ -829,21 +834,6 @@ class EKFNet(object):
                 "dx_post" : np.zeros((7,1)),
                 "dp_post" : np.zeros((7,7)) 
             }
-
-            """
-            self.forward_cache[i] = {
-                'x_pred' : x_pred,
-                'p_pred' : p_pred,
-                'z'      : z,
-                'cache_meas' : cache_meas,
-                'x_post' : x_post,
-                'p_post' : p_post,
-                'cache_update': cache_update,
-                'cache_pred'  : cache_pred
-                'y_'          : y_,
-                'S'           : S
-            }
-            """
             # Output from the Filter
             y_     = self.forward_cache[i]["y_"]
             S      = self.forward_cache[i]["S"]
@@ -864,11 +854,12 @@ class EKFNet(object):
                 # dp_post current step
                 insider = np.dot(post_sigma_inv.dot(residual.dot(residual.T)),post_sigma_inv)
                 dp_post_current = 0.5 * (post_sigma_inv - insider )
-                """
+                
+                ''' 
                 print(residual)
                 print(dx_post_current)
                 print(dp_post_current)
-                """
+                '''
                 self.dH[i]["dx_post"] += dx_post_current
                 self.dH[i]["dp_post"] += dp_post_current
 
@@ -897,7 +888,8 @@ class EKFNet(object):
     def totalLoss(self):
         T = len(self.headings)
         # Ground Truth 
-        x_gt = self.datasets.afterSmooth.x[0::self.config["interval"]]
+        
+        x_gt = self.gt
         x_gt = np.array(x_gt[0:len(self.locs)])
         RMS_state = 0.0
         RMS_meas  = 0.0
@@ -905,7 +897,7 @@ class EKFNet(object):
         logLikelihood_meas  = 0.0 
 
         counter = 0 
-        for i in range(5 , T):
+        for i in range(2 , T):
             counter += 1
             # Output from the Filter
             y_     = self.forward_cache[i]["y_"]
@@ -920,13 +912,13 @@ class EKFNet(object):
             RMS_state += ((residual.dot(residual.T)).trace()).item()
             RMS_meas  += (y_.dot(y_.T)).trace()
 
-            zeros = np.zeros(5)
+            zeros = np.zeros(7)
             like_states = multivariate_normal.logpdf(residual.T, 
                                               mean = zeros.T, 
                                               cov = p_post,
                                               allow_singular = False)
             logLikelihood_state += like_states
-            zeros = np.zeros(3)
+            zeros = np.zeros(5)
             like_meas = multivariate_normal.logpdf(y_.T, 
                                               mean = zeros.T, 
                                               cov = S,
@@ -946,29 +938,29 @@ class EKFNet(object):
     def plot_overview(self):
         fig = plt.figure(figsize=(12, 16))
         ax = fig.add_subplot(111)
-        
 
         loc = np.array(self.x)
+        print("Length of the filter states", len(loc))
         plt.scatter(loc[:,0], loc[:,1], c='y', s=50, marker="1", 
                 label="{}".format("After Kalman Filter"))
         plt.plot(loc[:,0], loc[:,1], c='y')        
 
-        loc = np.array(self.bias_locs)
+
+        loc = np.array(self.locs)
+        print("Length of the detection ", len(loc))
         plt.scatter(loc[:,0], loc[:,1], c='r', s=50, marker="x", 
                 label="{}".format("Noise Measurements"))
 
         # Print Ground Truth Position
-        if self.datasets.afterSmooth is not None:
-            loc = self.datasets.afterSmooth.x[0::self.config["interval"]]
+        if self.gt is not None:
+            loc = self.gt
             loc = np.array(loc[0:len(self.locs)])
-            plt.scatter(loc[:,0], loc[:,1], c='k', s=50, marker="2", 
+            
+            plt.scatter(loc[0,0], loc[0,1], c='b', s=100, marker="2", 
+                    label="{}".format("Ground Truth"))
+            plt.scatter(loc[1:,0], loc[1:,1], c='k', s=50, marker="2", 
                     label="{}".format("Ground Truth"))
             plt.plot(loc[:,0], loc[:,1], c='k')
-        else: 
-            loc = np.array(self.locs)
-            plt.scatter(loc[:,0], loc[:,1], c='b', s=50, marker="+", 
-                    label="{}".format("Center Measurements"))
-            plt.plot(loc[:,0], loc[:,1], c='b')
 
 
         ax.axis('equal')

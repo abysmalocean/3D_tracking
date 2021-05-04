@@ -253,7 +253,7 @@ def matching_and_get_diff_stats(pred_boxes, gt_boxes, tracks_gt, matching_dist):
           index_j = matched_indices[pair_id][1]
           dist.append(distance_matrix[index_i][index_j])
         print(dist)
-        print("Match without Missdetections")
+        print("Match without Miss·detections")
         print(matched_indices_test.T)
         dist = []
         for pair_id in range(matched_indices_test.shape[0]):
