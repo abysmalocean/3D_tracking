@@ -12,17 +12,13 @@ from matplotlib import pyplot as plt
 import EKFNet.config as config
 from scipy.stats import multivariate_normal
 
-
-
-
-
 class EKFNet(object): 
 
     """ 
     This is the EKFNet, implementation
     """ 
 
-    def __init__(self): 
+    def __init__(self, network = None): 
         super(EKFNet, self).__init__()
         self.ftimes   = []
         self.locs     = [] # center_x, center_y, center_z.
@@ -44,8 +40,8 @@ class EKFNet(object):
         self.sigma_GPS_l = 0.1
 
         # Process Noise Sigmas
-        self.max_acc = 3.0 **2
-        self.max_sttering_rate = 0.6**2
+        self.max_acc = 3.0 
+        self.max_sttering_rate = 0.6 
         
         self.sigma_x = 5.0
         self.sigma_y = 5.0
@@ -81,14 +77,20 @@ class EKFNet(object):
         # gt data
         self.gt = None
         
-        print("Uncertainty aware with EKF filter")
+        # for uncertatinty aware networl
+        self.network = network
+        
+        #print("Uncertainty aware with EKF filter")
         
     def set_paramters(self, parameters = None): 
+        
         if parameters is not None: 
             # Measurement Noise Sigma
             self.sigma_GPS_x       = parameters["sigma_GPS_x"]
             self.sigma_GPS_y       = parameters["sigma_GPS_y"]
             self.sigma_GPS_h       = parameters["sigma_GPS_h"]
+            self.sigma_GPS_w       = parameters["sigma_GPS_w"]
+            self.sigma_GPS_l       = parameters["sigma_GPS_l"]
 
             # Process Noise Sigmas
             self.max_acc           = parameters["max_acc"]
@@ -102,6 +104,9 @@ class EKFNet(object):
             self.sigma_h           = parameters["sigma_h"]
             self.sigma_v           = parameters["sigma_v"]
             self.sigma_p           = parameters["sigma_p"]
+            self.sigma_w           = parameters["sigma_w"]
+            self.sigma_l           = parameters["sigma_l"]
+            
             self.sigma_x           = 0.0
             self.sigma_y           = 0.0
             self.sigma_h           = 0.0
@@ -128,16 +133,23 @@ class EKFNet(object):
             #print("ego_angle ", ego_angle, " detected vehicle th ", self.headings[-1])
             angle_dif1 = angle_difference(ego_angle, self.headings[-1])
             angle_dif2 = angle_difference(ego_angle, self.headings[-1] + np.pi)
-            self.angle.append(min([angle_dif1, angle_dif2], key=abs))
+            self.angle.append(np.cos(min([angle_dif1, angle_dif2], key=abs)))
             
             # distance to ego_vehicle
             location_ego = current_frame['ego_pose']['translation'][0:2]
             dist = np.sqrt((self.locs[-1][0] - location_ego[0])**2 +\
                            (self.locs[-1][1] - location_ego[1])**2)
-            self.dist.append(dist)
+            # Normalized distance
+            self.dist.append(dist / self.config['distance_norm'])
             
             # number of Lidar Points
             n_lidar_point = current_frame['sample_annotation']['num_lidar_pts']
+            
+            if n_lidar_point > self.config['n_point_norm']: 
+                n_lidar_point = 1.0
+            else: 
+                n_lidar_point = n_lidar_point / self.config['n_point_norm']
+            #print(n_lidar_point)
             self.n_lidar_points.append(n_lidar_point)
 
     def predict(self, state, dt): 
@@ -354,6 +366,8 @@ class EKFNet(object):
         x_pred = x_0
         p_pred = P_0
 
+        # TODO: change this to uncertainty aware! 
+        
         R = np.diag(np.array([self.sigma_GPS_x, 
                               self.sigma_GPS_y, 
                               self.sigma_GPS_h,
@@ -382,6 +396,22 @@ class EKFNet(object):
                  self.shapes[i][1]]
             
             # Meaurement prediction
+            """
+            def forward(self, 
+                distance, 
+                angle,
+                n_points):
+            """
+            if self.network is not None: 
+                uncertainty_R = self.network(distance = self.dist[i],
+                                             angle    = self.angle[i],
+                                             n_points = self.n_lidar_points[i])
+                R = np.diag(np.array([max(0.01, self.sigma_GPS_x + uncertainty_R[0][0].item()), 
+                                      max(0.01, self.sigma_GPS_y + uncertainty_R[0][1].item()), 
+                                      max(0.01, self.sigma_GPS_h + uncertainty_R[0][2].item()),
+                                      max(0.01, self.sigma_GPS_w + uncertainty_R[0][3].item()),
+                                      max(0.01, self.sigma_GPS_l + uncertainty_R[0][4].item())]))
+                
             y_, S, H, cache_meas = self.measurement_forward(x_pred, 
                                                             p_pred, 
                                                             z, 
@@ -405,7 +435,7 @@ class EKFNet(object):
                 'S'           : S
             }
             # prediction
-            if i < NSteps - 1: 
+            if i < NSteps - 1:
                 dt = meas_times[i+1] - meas_times[i]
                 x_pred, p_pred, cache_pred = self.prediction_forward(x_post, 
                                                                      p_post,
@@ -448,7 +478,7 @@ class EKFNet(object):
         dp_post_prev = np.zeros((7,7))
 
         counter = 0
-        for i in range(T - 2, 10, -1): 
+        for i in range(T - 2, 5, -1): 
             counter += 1
             #dQ_acc_       = np.zeros((2,2))
             #dQ_other_     = np.zeros((5,5))
@@ -485,9 +515,9 @@ class EKFNet(object):
             dQ_other += dQ_other_ 
             dR       += dR_
 
-        dR     = dR         
-        dQ_acc = dQ_acc     
-        dQ_other = dQ_other 
+        dR     = dR / counter         
+        dQ_acc = dQ_acc / counter     
+        dQ_other = dQ_other / counter 
 
         return dR, dQ_acc, dQ_other
 

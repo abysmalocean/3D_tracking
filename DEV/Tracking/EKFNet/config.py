@@ -12,5 +12,9 @@ config = {
     "print_every"            : 1, 
     "verbose"                : True,
     "lr_decay"               : 0.99, 
-    'lr'                     : 1e-1
+    'lr'                     : 1e-1, 
+    
+    # used for unceratinty aware input normalization
+    'distance_norm'          : 60.0,
+    'n_point_norm'           : 300
 }

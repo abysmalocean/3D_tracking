@@ -229,6 +229,7 @@ class EKF_wraper(object):
                       #self.initials['var'][self.tracking_name][0] + 0.1, 
                       #self.initials['var'][self.tracking_name][5] + 0.1
                       ]))
+        
         Q_0 = np.zeros((5, 5))
         Q_0[0][0] = self.meas_var[self.tracking_name][3] + .5
         Q_0[1][1] = self.meas_var[self.tracking_name][4] + .5
@@ -238,6 +239,7 @@ class EKF_wraper(object):
         Q_0[4][4] = self.meas_var[self.tracking_name][6]
         #Q_0[5][5] = self.meas_var[self.tracking_name][1]
         #Q_0[6][6] = self.meas_var[self.tracking_name][0]
+        
         
         
         # should create multiple EKF with different headings.
