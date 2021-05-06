@@ -34,6 +34,6 @@ class uncertaintyNet(nn.Module):
         x = self.fc1(vecInput)
         x = self.fc2(F.relu(x))
         x = self.fc3(F.relu(x))
-        x = 0.1 * self.outactiv(x)
+        x = self.outactiv(x)
         self.out = x
         return x

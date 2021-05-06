@@ -1,14 +1,14 @@
 
 config = {
-    "RMS_measurement"        : True,
+    "RMS_measurement"        : False,
     "RMS_post"               : True,
-    "Likelihood_measurement" : True , 
-    "Likelihood_post"        : True, 
+    "Likelihood_measurement" : True, 
+    "Likelihood_post"        : False, 
     "interval"               : 1,
     "update_rule"            : "adam",
     
     "batch_size"             : 10, 
-    "num_epochs"             : 1000, 
+    "num_epochs"             : 10, 
     "print_every"            : 1, 
     "verbose"                : True,
     "lr_decay"               : 0.99, 

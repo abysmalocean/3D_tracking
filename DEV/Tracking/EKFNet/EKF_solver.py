@@ -47,7 +47,7 @@ class EKFSolver(object):
         }
         
         self.uncertainty_net = network
-        self.optimizer = op.Adam(self.uncertainty_net.parameters(), lr=1e-5)
+        self.optimizer = op.Adam(self.uncertainty_net.parameters(), lr=1e-3)
 
         
         
@@ -172,7 +172,8 @@ class EKFSolver(object):
         for index in tqdm(range(0, self.training_len)):
             #index = self.ramdom_index_training[training_index]
             dataset = self.training_data
-            EKF_filter = EKFNet.EKFNet()
+            EKF_filter = EKFNet.EKFNet(network=self.uncertainty_net)
+            #EKF_filter = EKFNet.EKFNet()
             EKF_filter.load_data_set(datasets = dataset['data'][index], 
                                      gt       = dataset['gt'][index])
             
@@ -182,7 +183,6 @@ class EKFSolver(object):
             EKF_filter.set_paramters(self.parameters)
             EKF_filter.run_EKF_NET_forward()
             EKF_filter.generate_grad()
-
             loss_ = EKF_filter.totalLoss()
             dR_, dQ_acc_, dQ_other_ = EKF_filter.run_backward()
             loss["RMS_state"]           += loss_["RMS_state"]
@@ -237,6 +237,7 @@ class EKFSolver(object):
         """
         
         # train the uncertainty network
+        
         self.optimizer.zero_grad()
         self.uncertainty_net.train()
         torch.set_grad_enabled(True)
@@ -246,9 +247,11 @@ class EKFSolver(object):
         gradients[0][2] = dR[2][2]
         gradients[0][3] = dR[3][3]
         gradients[0][4] = dR[4][4]
+        print(gradients)
         gradients = torch.from_numpy(gradients)
         self.uncertainty_net.out.backward(gradients)
         self.optimizer.step()
+        
         
 
     def construct_grads(self, dR, dQ_acc, dQ_other):
@@ -282,12 +285,14 @@ class EKFSolver(object):
             "logLikelihood_meas"   :  0.0
         }
 
-        for index in range(0, self.validation_len):
+        for index in tqdm(range(0, self.validation_len)):
+            dataset = self.validation_data
             #index = self.ramdom_index_training[training_index]
-            dataset = self.validation_data[index]['dataset']
+            EKF_filter = EKFNet.EKFNet(network=self.uncertainty_net)
+            #EKF_filter = EKFNet.EKFNet()
+            EKF_filter.load_data_set(datasets = dataset['data'][index], 
+                                     gt       = dataset['gt'][index])
             
-            EKF_filter = EKFNet.EKFNet()
-            EKF_filter.load_data_set(dataset)
             # Update the parameters
             EKF_filter.set_paramters(self.parameters)
             EKF_filter.run_EKF_NET_forward()
@@ -314,7 +319,7 @@ class EKFSolver(object):
 
         for t in range(num_iterations):
             self._step(counter)
-            #self.validation()
+            self.validation()
             counter += 1
             # print the training loss and validation loss
             
@@ -327,15 +332,16 @@ class EKFSolver(object):
                        self.loss_history[-1]["logLikelihood_meas"],
                         
                        ))
-                #print('(Validation) \n Post RMS: %f , \n Meas RMS: %f ,\n Post Like: %f, \n Meas Like %f' % (
-                #       self.validation_history[-1]["RMS_state"], 
-                #       self.validation_history[-1]["RMS_meas"],
-                #       self.validation_history[-1]["logLikelihood_state"],
-                #       self.validation_history[-1]["logLikelihood_meas"],
-                #        
-                #       ))
-                for k, v in self.parameters.items():
-                    print("%s  : %f ", k ,v)
+                print('(Validation) \n Post RMS: %f , \n Meas RMS: %f ,\n Post Like: %f, \n Meas Like %f' % (
+                       self.validation_history[-1]["RMS_state"], 
+                       self.validation_history[-1]["RMS_meas"],
+                       self.validation_history[-1]["logLikelihood_state"],
+                       self.validation_history[-1]["logLikelihood_meas"],
+                        
+                       ))
+                
+                #for k, v in self.parameters.items():
+                #    print("%s  : %f ", k ,v)
             
             epoch_end = (t + 1) % iterations_per_epoch == 0
 

@@ -406,11 +406,12 @@ class EKFNet(object):
                 uncertainty_R = self.network(distance = self.dist[i],
                                              angle    = self.angle[i],
                                              n_points = self.n_lidar_points[i])
-                R = np.diag(np.array([max(0.01, self.sigma_GPS_x + uncertainty_R[0][0].item()), 
-                                      max(0.01, self.sigma_GPS_y + uncertainty_R[0][1].item()), 
-                                      max(0.01, self.sigma_GPS_h + uncertainty_R[0][2].item()),
-                                      max(0.01, self.sigma_GPS_w + uncertainty_R[0][3].item()),
-                                      max(0.01, self.sigma_GPS_l + uncertainty_R[0][4].item())]))
+                R = np.diag(np.array([max(0.01, self.sigma_GPS_x + 0.5 * uncertainty_R[0][0].item()), 
+                                      max(0.01, self.sigma_GPS_y + 0.5 * uncertainty_R[0][1].item()), 
+                                      max(0.01, self.sigma_GPS_h + 0.5 * uncertainty_R[0][2].item()),
+                                      max(0.01, self.sigma_GPS_w + 0.5 * uncertainty_R[0][3].item()),
+                                      max(0.01, self.sigma_GPS_l + 0.5 * uncertainty_R[0][4].item())]))
+                #print(R)
                 
             y_, S, H, cache_meas = self.measurement_forward(x_pred, 
                                                             p_pred, 
