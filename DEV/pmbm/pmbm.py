@@ -226,6 +226,10 @@ class PMBM:
                        measurments): 
         raise NotImplementedError()
     
+    def possible_new_targets(self, measurements, classes): 
+        raise NotImplementedError()
+    
+    
     
     
     

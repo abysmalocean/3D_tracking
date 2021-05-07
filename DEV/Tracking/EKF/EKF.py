@@ -29,7 +29,9 @@ class After_filter(object):
         
 
 class EKF(): 
-    def __init__(self, tracking_name = 'car'):
+    def __init__(self, 
+                 uncertainty_net = None,
+                 tracking_name = 'car'):
         #super(EKF, self).__init__()
         self.maxacc = 3.0
         self.maxteeringacc = 0.6
@@ -51,6 +53,9 @@ class EKF():
         self.x_smooth = [] # updated states
         self.V = [] # updated covariance
         self.W = [] # predicted covariance
+        
+        # Unceratinty Net
+        self.uncertainty_net = uncertainty_net
         
     # initialize the States
     def create_initial(
@@ -287,7 +292,7 @@ class EKF():
         y_.itemset(2, angle_difference(detection.item(2),
                                       self.z_pred.item(2)% (2 * np.pi)))
         #print(y_.item(2))
-        
+        # TODO: Use the uncertainty net output! 
         self.P = np.dot((np.identity(7) - np.dot(self.K, self.H)), self.P)
         self.x = self.x + np.dot(self.K, y_)
         

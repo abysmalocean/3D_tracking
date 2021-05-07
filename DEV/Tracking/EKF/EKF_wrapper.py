@@ -16,7 +16,9 @@ DEBUG = False
 
 
 class EKF_wraper(object): 
-    def __init__(self , tracking_name = 'car'):
+    def __init__(self , 
+                 uncertainty_net = None, 
+                 tracking_name = 'car'):
         super(EKF_wraper, self).__init__()
         self.ftimes   = []
         self.locs     = [] # center_x, center_y, center_z.
@@ -40,8 +42,9 @@ class EKF_wraper(object):
         
         self.after_filter_states = []
         
+        # load the uncertainty_net.
+        self.uncertainty_net = uncertainty_net
         
-    
     def load_data_set(self, datasets): 
         """
         Load the Nuscense dataset. Internal data type
@@ -86,6 +89,8 @@ class EKF_wraper(object):
         
         # should create different heading angles
         new_weight = copy.copy(self.weights)
+        
+        # TODO: add the uncertatinty here.
         
         for filter_index, ekf in enumerate(self.KalmanFilters):
             # use to update the different angels
