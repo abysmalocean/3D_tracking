@@ -291,8 +291,8 @@ class EKFNet(object):
         l   = state.item(6)
         
         
-        z_predict[0] = x + self.wheelbase_to_length_ratio * l * cos(th) / 2.0
-        z_predict[1] = y + self.wheelbase_to_length_ratio * l * sin(th) / 2.0
+        z_predict[0] = x + (self.wheelbase_to_length_ratio - 0.5) * l * cos(th)
+        z_predict[1] = y + (self.wheelbase_to_length_ratio - 0.5) * l * sin(th)
         z_predict[2] = th
         z_predict[3] = w
         z_predict[4] = l
@@ -313,12 +313,12 @@ class EKFNet(object):
         
         # for x
         H[0, 0] = 1.0
-        H[0, 2] = self.wheelbase_to_length_ratio / 2.0 * l * cos(th)
-        H[0, 6] = self.wheelbase_to_length_ratio / 2.0 * sin(th)
+        H[0, 2] = (self.wheelbase_to_length_ratio - 0.5) * l * cos(th)
+        H[0, 6] = (self.wheelbase_to_length_ratio - 0.5) * sin(th)
         # for y
         H[1, 1] = 1.0
-        H[1, 2] = -self.wheelbase_to_length_ratio / 2.0 * l * sin(th)
-        H[1, 6] = self.wheelbase_to_length_ratio / 2.0 * cos(th)
+        H[1, 2] = -(self.wheelbase_to_length_ratio - 0.5) * l * sin(th)
+        H[1, 6] =  (self.wheelbase_to_length_ratio - 0.5) * cos(th)
         
         # for th
         H[2, 2] = 1.0
@@ -339,8 +339,8 @@ class EKFNet(object):
         w_mean = 1.96 # from statistics
         l_mean = 4.62 # from statistics
         
-        x_0  = np.array([self.locs[0][0] - self.wheelbase_to_length_ratio * l * cos(th) / 2.0 , 
-                         self.locs[0][1] - self.wheelbase_to_length_ratio * l * sin(th) / 2.0 , 
+        x_0  = np.array([self.locs[0][0] - (self.wheelbase_to_length_ratio - 0.5) * l * cos(th) , 
+                         self.locs[0][1] - (self.wheelbase_to_length_ratio - 0.5) * l * sin(th) , 
                          th, 
                          v, 
                          0.0, 
@@ -686,7 +686,8 @@ class EKFNet(object):
         y_ = z_k - h(x_{k|k-1})
         """
         dx_pred   = np.zeros(7)
-        center_rare = self.wheelbase_to_length_ratio / 2.0
+        #center_rare = self.wheelbase_to_length_ratio / 2.0
+        center_rare = self.wheelbase_to_length_ratio - 0.5
         l = x_pred[6]  # 0.3 is the center to rear center
         
         # for the heading angle

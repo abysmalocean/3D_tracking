@@ -171,6 +171,7 @@ def matching_and_get_diff_stats(pred_boxes, gt_boxes, tracks_gt, matching_dist):
         continue
       box = tracks_gt[scene_token][t][0]
       sample_token = box.sample_token
+      
 
       for tracking_name in NUSCENES_TRACKING_NAMES:
     
@@ -279,6 +280,7 @@ def matching_and_get_diff_stats(pred_boxes, gt_boxes, tracks_gt, matching_dist):
             index_j = matched_indices[pair_id][1] # detection index
             ddisc   =  distance_matrix[index_i][index_j]
             
+            
             if (ddisc > 2.0): 
               print("THe distance is greater than miss detection ", ddisc)
             diff_value = dets[index_j] - gts[index_i]
@@ -290,6 +292,7 @@ def matching_and_get_diff_stats(pred_boxes, gt_boxes, tracks_gt, matching_dist):
             angle_diff_3 = angle_difference((dets[index_j][6] - np.pi/2),  gts[index_i][6])
             
             diff_value[6] = min(angle_diff_0, angle_diff_1, angle_diff_2, angle_diff_3, key=abs)
+            #diff_value[6] = angle_diff_0
             #print("Optimized Angle ", diff_value[6], " -> {}, {}".format(np.degrees(dets[index_j][6]), 
             #                                                      np.degrees(gts[index_i][6])))
             #print("\n")

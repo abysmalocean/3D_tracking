@@ -112,8 +112,8 @@ class EKF():
         w   = state.item(5)
         l   = state.item(6)
         
-        return np.array([x + self.wheelbase_to_length_ratio * l * cos(th) / 2.0,
-                         y + self.wheelbase_to_length_ratio * l * sin(th) / 2.0, 
+        return np.array([x + (self.wheelbase_to_length_ratio - 0.5) * l * cos(th),
+                         y + (self.wheelbase_to_length_ratio - 0.5) * l * sin(th), 
                          th,
                          w,
                          l])[:, None]
@@ -133,12 +133,12 @@ class EKF():
         
         # for x
         H[0, 0] = 1.0
-        H[0, 2] = -self.wheelbase_to_length_ratio / 2.0 * l * sin(th)
-        H[0, 6] = self.wheelbase_to_length_ratio / 2.0 * cos(th)
+        H[0, 2] = -(self.wheelbase_to_length_ratio - 0.5) * l * sin(th)
+        H[0, 6] =  (self.wheelbase_to_length_ratio - 0.5) * cos(th)
         # for y
         H[1, 1] = 1.0
-        H[1, 2] = self.wheelbase_to_length_ratio / 2.0 * l * cos(th)
-        H[1, 6] = self.wheelbase_to_length_ratio / 2.0 * sin(th)
+        H[1, 2] = (self.wheelbase_to_length_ratio - 0.5) * l * cos(th)
+        H[1, 6] = (self.wheelbase_to_length_ratio - 0.5) * sin(th)
         
         # for th
         H[2, 2] = 1.0
@@ -227,23 +227,7 @@ class EKF():
         #z   = state.item(8)
         
         # predict the state 
-        '''
-        temp_x =  np.array([x + self.wheelbase_to_length_ratio * l * cos(th) / 2.0,
-                            y + self.wheelbase_to_length_ratio * l * sin(th) / 2.0,
-                            th + sin(phi) * v * dt / (l * self.wheelbase_to_length_ratio),
-                            v, 
-                            phi,
-                            l,
-                            w ])[:, None]
         
-        temp_x = np.array([x + cos(th) * cos(phi) * v * dt,
-                         y + sin(th) * cos(phi) * v * dt,
-                         th + sin(phi) * v * dt / wheelbase,
-                         v,
-                         phi,
-                         w,
-                         h])[:, None]
-        '''
         temp_x =  np.array([x + cos(th) * cos(phi) * v * dt,
                             y + sin(th) * cos(phi) * v * dt,
                             th + sin(phi) * v * dt / (l * self.wheelbase_to_length_ratio),

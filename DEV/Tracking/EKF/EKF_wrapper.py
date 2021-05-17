@@ -213,8 +213,8 @@ class EKF_wraper(object):
         l = self.shapes[0][1]
         th = self.headings[0]
         
-        x_0  = np.array([self.locs[0][0] - self.wheelbase_to_length_ratio * l * cos(th) / 2.0 , 
-                         self.locs[0][1] - self.wheelbase_to_length_ratio * l * sin(th) / 2.0 , 
+        x_0  = np.array([self.locs[0][0] - (self.wheelbase_to_length_ratio - 0.5) * l * cos(th), 
+                         self.locs[0][1] - (self.wheelbase_to_length_ratio - 0.5) * l * sin(th), 
                          th, 
                          v, 
                          0.0, 
